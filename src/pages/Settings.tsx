@@ -1,5 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { INSURANCE_OPTIONS } from '@/data/mock';
+import { supabase } from '@/integrations/supabase/client';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -9,10 +10,38 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Stethoscope, Clock, Shield, MessageSquare, CreditCard, X } from 'lucide-react';
 import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+
+const INSURANCE_OPTIONS = ['Sulamérica', 'Unimed', 'Care Plus', 'Amil', 'Alice', 'Bradesco'];
 
 export default function Settings() {
-  const { doctor } = useAuth();
+  const { doctor, user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [insurances, setInsurances] = useState(doctor?.accepted_insurances || []);
+  const [form, setForm] = useState({
+    name: doctor?.name || '',
+    email: doctor?.email || '',
+    crm: doctor?.crm || '',
+    phone: doctor?.phone || '',
+    whatsapp_number: doctor?.whatsapp_number || '',
+  });
+
+  const updateProfile = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('doctors').update({
+        name: form.name,
+        phone: form.phone,
+        whatsapp_number: form.whatsapp_number || null,
+        accepted_insurances: insurances,
+      }).eq('id', user!.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: 'Perfil atualizado!' });
+    },
+    onError: (e: any) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
+  });
 
   return (
     <div className="space-y-4 max-w-3xl">
@@ -40,14 +69,16 @@ export default function Settings() {
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Nome</Label><Input defaultValue={doctor?.name} /></div>
-              <div className="space-y-2"><Label>Email</Label><Input defaultValue={doctor?.email} /></div>
-              <div className="space-y-2"><Label>CRM</Label><Input defaultValue={doctor?.crm} /></div>
-              <div className="space-y-2"><Label>Telefone</Label><Input defaultValue={doctor?.phone} /></div>
-              <div className="space-y-2"><Label>WhatsApp</Label><Input defaultValue={doctor?.whatsapp_number || ''} /></div>
-              <div className="space-y-2"><Label>Especialidade</Label><Input defaultValue={doctor?.specialty} disabled className="capitalize" /></div>
+              <div className="space-y-2"><Label>Nome</Label><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>Email</Label><Input value={form.email} disabled /></div>
+              <div className="space-y-2"><Label>CRM</Label><Input value={form.crm} disabled /></div>
+              <div className="space-y-2"><Label>Telefone</Label><Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>WhatsApp</Label><Input value={form.whatsapp_number} onChange={e => setForm(f => ({ ...f, whatsapp_number: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>Especialidade</Label><Input value={doctor?.specialty || ''} disabled className="capitalize" /></div>
             </div>
-            <Button className="medflow-btn">Salvar</Button>
+            <Button className="medflow-btn" onClick={() => updateProfile.mutate()} disabled={updateProfile.isPending}>
+              {updateProfile.isPending ? 'Salvando...' : 'Salvar'}
+            </Button>
           </div>
         </TabsContent>
 
@@ -56,7 +87,7 @@ export default function Settings() {
             <h2 className="font-semibold text-foreground flex items-center gap-2"><Clock className="h-5 w-5" /> Horários de Atendimento</h2>
             {['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((day, i) => {
               const key = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab'][i];
-              const hours = doctor?.working_hours?.[key];
+              const hours = (doctor?.working_hours as any)?.[key];
               return (
                 <div key={day} className="flex items-center gap-4 py-2 border-b border-border/50 last:border-0">
                   <span className="w-20 text-sm font-medium">{day}</span>
@@ -94,6 +125,7 @@ export default function Settings() {
                 </SelectContent>
               </Select>
             </div>
+            <Button className="medflow-btn" onClick={() => updateProfile.mutate()} disabled={updateProfile.isPending}>Salvar Convênios</Button>
           </div>
         </TabsContent>
 
