@@ -111,10 +111,53 @@ export default function Agenda() {
     onError: (e: any) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
   });
 
-  const navigate = (dir: number) => {
+  const navigateDate = (dir: number) => {
     if (viewMode === 'day') setCurrentDate(d => addDays(d, dir));
     else if (viewMode === 'week') setCurrentDate(d => addDays(d, dir * 7));
     else setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() + dir, 1));
+  };
+
+  const updateAppointment = useMutation({
+    mutationFn: async (updates: Record<string, any>) => {
+      const { error } = await supabase.from('appointments').update(updates).eq('id', selectedApt!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      toast({ title: 'Consulta atualizada!' });
+    },
+    onError: (e: any) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
+  });
+
+  const handleStatusChange = (newStatus: string) => {
+    if (newStatus === 'cancelada' && !window.confirm('Tem certeza que deseja cancelar esta consulta?')) return;
+    updateAppointment.mutate({ status: newStatus });
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingApt) return;
+    updateAppointment.mutate({
+      date: editingApt.date,
+      time: editingApt.time,
+      duration_minutes: parseInt(editingApt.duration_minutes),
+      type: editingApt.type,
+      status: editingApt.status,
+      notes: editingApt.notes || null,
+      insurance_code: editingApt.insurance_code || null,
+    }, { onSuccess: () => setEditingApt(null) });
+  };
+
+  const handleStartEdit = () => {
+    if (!selectedAppointment) return;
+    setEditingApt({
+      date: selectedAppointment.date,
+      time: selectedAppointment.time,
+      duration_minutes: String(selectedAppointment.duration_minutes),
+      type: selectedAppointment.type,
+      status: selectedAppointment.status,
+      notes: selectedAppointment.notes || '',
+      insurance_code: selectedAppointment.insurance_code || '',
+    });
   };
 
   const getAppointmentsForDate = (date: Date) =>
@@ -140,7 +183,7 @@ export default function Agenda() {
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <Button variant="ghost" size="icon" onClick={() => navigateDate(-1)}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
           <span className="text-sm font-semibold text-foreground min-w-[180px] text-center">
@@ -148,7 +191,7 @@ export default function Agenda() {
             {viewMode === 'week' && `${format(weekStart, "d MMM", { locale: ptBR })} — ${format(addDays(weekStart, 6), "d MMM", { locale: ptBR })}`}
             {viewMode === 'month' && format(currentDate, "MMMM yyyy", { locale: ptBR })}
           </span>
-          <Button variant="ghost" size="icon" onClick={() => navigate(1)}>
+          <Button variant="ghost" size="icon" onClick={() => navigateDate(1)}>
             <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
@@ -292,24 +335,109 @@ export default function Agenda() {
       )}
 
       {/* Appointment Detail Dialog */}
-      <Dialog open={!!selectedAppointment} onOpenChange={() => setSelectedApt(null)}>
+      <Dialog open={!!selectedAppointment} onOpenChange={() => { setSelectedApt(null); setEditingApt(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Detalhes da Consulta</DialogTitle>
+            <DialogTitle>{editingApt ? 'Editar Consulta' : 'Detalhes da Consulta'}</DialogTitle>
           </DialogHeader>
-          {selectedAppointment && (
+          {selectedAppointment && !editingApt && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <p className="text-sm"><span className="font-medium">Paciente:</span> {getPatientName(selectedAppointment)}</p>
                 <p className="text-sm"><span className="font-medium">Data:</span> {format(parseISO(selectedAppointment.date), "d 'de' MMMM, yyyy", { locale: ptBR })}</p>
                 <p className="text-sm"><span className="font-medium">Horário:</span> {selectedAppointment.time} ({selectedAppointment.duration_minutes}min)</p>
                 <p className="text-sm"><span className="font-medium">Tipo:</span> <span className="capitalize">{selectedAppointment.type}</span></p>
+                {selectedAppointment.notes && <p className="text-sm"><span className="font-medium">Observações:</span> {selectedAppointment.notes}</p>}
                 <p className="text-sm"><span className="font-medium">Status:</span> <Badge className={`${statusColors[selectedAppointment.status]} border-0 ml-1`}>{statusLabels[selectedAppointment.status]}</Badge></p>
               </div>
               <div className="flex gap-2 flex-wrap">
-                <Button size="sm" className="medflow-btn">Iniciar Atendimento</Button>
-                <Button size="sm" variant="outline" className="medflow-btn">Editar</Button>
-                <Button size="sm" variant="outline" className="medflow-btn text-destructive">Cancelar</Button>
+                {!['cancelada', 'realizada'].includes(selectedAppointment.status) && (
+                  <Button size="sm" className="medflow-btn" onClick={() => { setSelectedApt(null); navigate(`/atendimento/${selectedAppointment.id}`); }}>
+                    Iniciar Atendimento
+                  </Button>
+                )}
+                <Button size="sm" variant="outline" onClick={handleStartEdit}>Editar</Button>
+                {selectedAppointment.status === 'agendada' && (
+                  <Button size="sm" variant="outline" onClick={() => handleStatusChange('confirmada')}>Confirmar</Button>
+                )}
+                {!['cancelada', 'realizada', 'faltou'].includes(selectedAppointment.status) && (
+                  <Button size="sm" variant="outline" onClick={() => handleStatusChange('faltou')}>Marcar Falta</Button>
+                )}
+                {!['cancelada', 'realizada'].includes(selectedAppointment.status) && (
+                  <Button size="sm" variant="outline" className="text-destructive" onClick={() => handleStatusChange('cancelada')}>Cancelar</Button>
+                )}
+              </div>
+            </div>
+          )}
+          {selectedAppointment && editingApt && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Data</Label>
+                  <Input type="date" value={editingApt.date} onChange={e => setEditingApt(f => f ? { ...f, date: e.target.value } : f)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Horário</Label>
+                  <Input type="time" value={editingApt.time} onChange={e => setEditingApt(f => f ? { ...f, time: e.target.value } : f)} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Duração</Label>
+                  <Select value={editingApt.duration_minutes} onValueChange={v => setEditingApt(f => f ? { ...f, duration_minutes: v } : f)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="15">15 min</SelectItem>
+                      <SelectItem value="30">30 min</SelectItem>
+                      <SelectItem value="45">45 min</SelectItem>
+                      <SelectItem value="60">60 min</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo</Label>
+                  <Select value={editingApt.type} onValueChange={v => setEditingApt(f => f ? { ...f, type: v } : f)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="particular">Particular</SelectItem>
+                      <SelectItem value="convenio">Convênio</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={editingApt.status} onValueChange={v => setEditingApt(f => f ? { ...f, status: v } : f)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(statusLabels).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {editingApt.type === 'convenio' && (
+                <div className="space-y-2">
+                  <Label>Convênio</Label>
+                  <Select value={editingApt.insurance_code} onValueChange={v => setEditingApt(f => f ? { ...f, insurance_code: v } : f)}>
+                    <SelectTrigger><SelectValue placeholder="Selecione o convênio" /></SelectTrigger>
+                    <SelectContent>
+                      {INSURANCE_OPTIONS.map(ins => (
+                        <SelectItem key={ins} value={ins}>{ins}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label>Observações</Label>
+                <Textarea value={editingApt.notes} onChange={e => setEditingApt(f => f ? { ...f, notes: e.target.value } : f)} />
+              </div>
+              <div className="flex gap-2">
+                <Button className="flex-1 medflow-btn" onClick={handleSaveEdit} disabled={updateAppointment.isPending}>
+                  {updateAppointment.isPending ? 'Salvando...' : 'Salvar'}
+                </Button>
+                <Button variant="outline" onClick={() => setEditingApt(null)}>Cancelar</Button>
               </div>
             </div>
           )}
