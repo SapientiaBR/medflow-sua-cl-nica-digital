@@ -27,6 +27,12 @@ const statusLabels: Record<string, string> = {
 
 const hours = Array.from({ length: 12 }, (_, i) => `${(i + 7).toString().padStart(2, '0')}:00`);
 
+const getInsuranceLabel = (apt: typeof mockAppointments[0]) => {
+  if (apt.type === 'particular') return 'Particular';
+  const patient = mockPatients.find(p => p.id === apt.patient_id);
+  return patient?.insurance && patient.insurance !== 'Particular' ? patient.insurance : 'Convênio';
+};
+
 export default function Agenda() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -111,6 +117,13 @@ export default function Agenda() {
                       >
                         <p className="font-semibold">{apt.time}</p>
                         <p className="truncate">{getPatientName(apt.patient_id)}</p>
+                        <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                          apt.type === 'particular'
+                            ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
+                            : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                        }`}>
+                          {apt.type === 'particular' ? 'Part.' : getInsuranceLabel(apt)}
+                        </span>
                       </div>
                     ))}
                     {apts.length === 0 && (
@@ -144,9 +157,18 @@ export default function Agenda() {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-semibold text-sm">{getPatientName(apt.patient_id)}</p>
-                          <p className="text-xs text-muted-foreground">{apt.time} — {apt.duration_minutes}min • {apt.type}</p>
+                          <p className="text-xs text-muted-foreground">{apt.time} — {apt.duration_minutes}min</p>
                         </div>
-                        <Badge variant="outline" className="text-xs">{statusLabels[apt.status]}</Badge>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                            apt.type === 'particular'
+                              ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
+                              : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                          }`}>
+                            {getInsuranceLabel(apt)}
+                          </span>
+                          <Badge variant="outline" className="text-xs">{statusLabels[apt.status]}</Badge>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -183,7 +205,9 @@ export default function Agenda() {
                   {apts.length > 0 && (
                     <div className="flex gap-0.5 mt-0.5 flex-wrap">
                       {apts.slice(0, 3).map(a => (
-                        <div key={a.id} className="w-1.5 h-1.5 rounded-full bg-primary" />
+                        <div key={a.id} className={`w-1.5 h-1.5 rounded-full ${
+                          a.type === 'particular' ? 'bg-violet-500' : 'bg-blue-500'
+                        }`} />
                       ))}
                       {apts.length > 3 && <span className="text-[10px] text-muted-foreground">+{apts.length - 3}</span>}
                     </div>
