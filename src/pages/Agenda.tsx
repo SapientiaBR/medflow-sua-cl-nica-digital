@@ -36,11 +36,13 @@ const hours = Array.from({ length: 12 }, (_, i) => `${(i + 7).toString().padStar
 export default function Agenda() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showNewModal, setShowNewModal] = useState(false);
   const [selectedApt, setSelectedApt] = useState<string | null>(null);
+  const [editingApt, setEditingApt] = useState<{ date: string; time: string; duration_minutes: string; type: string; status: string; notes: string; insurance_code: string } | null>(null);
 
   // New appointment form
   const [newApt, setNewApt] = useState({ patient_id: '', date: '', time: '', duration_minutes: '30', type: 'particular' as string, insurance_code: '', notes: '' });
