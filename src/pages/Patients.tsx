@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { mockPatients, mockAppointments } from '@/data/mock';
+import { mockPatients, mockAppointments, INSURANCE_OPTIONS } from '@/data/mock';
 import { format, differenceInYears, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Search, Plus, User } from 'lucide-react';
@@ -27,7 +27,7 @@ export default function Patients() {
     [search, filterInsurance]
   );
 
-  const insurances = [...new Set(mockPatients.map(p => p.insurance).filter(Boolean))];
+  const insurances = INSURANCE_OPTIONS;
 
   const getLastAppointment = (patientId: string) => {
     const apts = mockAppointments
@@ -58,8 +58,9 @@ export default function Patients() {
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
             {insurances.map(ins => (
-              <SelectItem key={ins} value={ins!}>{ins}</SelectItem>
+              <SelectItem key={ins} value={ins}>{ins}</SelectItem>
             ))}
+            <SelectItem value="Particular">Particular</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -139,7 +140,18 @@ export default function Patients() {
                 </Select>
               </div>
             </div>
-            <div className="space-y-2"><Label>Convênio</Label><Input placeholder="Nome do convênio" /></div>
+            <div className="space-y-2">
+              <Label>Convênio</Label>
+              <Select>
+                <SelectTrigger><SelectValue placeholder="Selecione o convênio" /></SelectTrigger>
+                <SelectContent>
+                  {INSURANCE_OPTIONS.map(ins => (
+                    <SelectItem key={ins} value={ins}>{ins}</SelectItem>
+                  ))}
+                  <SelectItem value="Particular">Particular</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-2"><Label>Alergias</Label><Input placeholder="Penicilina, Dipirona..." /></div>
             <div className="space-y-2"><Label>Observações</Label><Textarea placeholder="Observações gerais..." /></div>
             <Button className="w-full medflow-btn" onClick={() => setShowNewModal(false)}>Cadastrar Paciente</Button>

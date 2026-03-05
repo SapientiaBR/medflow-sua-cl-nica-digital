@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { mockAppointments, mockPatients } from '@/data/mock';
+import { mockAppointments, mockPatients, INSURANCE_OPTIONS } from '@/data/mock';
 import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -271,6 +271,17 @@ export default function Agenda() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Convênio</Label>
+              <Select>
+                <SelectTrigger><SelectValue placeholder="Selecione o convênio" /></SelectTrigger>
+                <SelectContent>
+                  {INSURANCE_OPTIONS.map(ins => (
+                    <SelectItem key={ins} value={ins}>{ins}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Observações</Label>

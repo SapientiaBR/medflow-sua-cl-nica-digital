@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { mockPatients, mockAppointments, mockDocuments, mockMedicalRecords } from '@/data/mock';
+import { mockPatients, mockAppointments, mockDocuments, mockMedicalRecords, INSURANCE_OPTIONS } from '@/data/mock';
 import { format, differenceInYears, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ArrowLeft, Phone, Mail, AlertTriangle, FileText, Calendar } from 'lucide-react';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
 const statusLabels: Record<string, string> = {
@@ -77,7 +78,18 @@ export default function PatientDetail() {
               <div className="space-y-2"><Label>Email</Label><Input defaultValue={patient.email || ''} /></div>
               <div className="space-y-2"><Label>CPF</Label><Input defaultValue={patient.cpf || ''} /></div>
               <div className="space-y-2"><Label>Data Nascimento</Label><Input type="date" defaultValue={patient.birth_date} /></div>
-              <div className="space-y-2"><Label>Convênio</Label><Input defaultValue={patient.insurance || ''} /></div>
+              <div className="space-y-2">
+                <Label>Convênio</Label>
+                <Select defaultValue={patient.insurance || undefined}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o convênio" /></SelectTrigger>
+                  <SelectContent>
+                    {INSURANCE_OPTIONS.map(ins => (
+                      <SelectItem key={ins} value={ins}>{ins}</SelectItem>
+                    ))}
+                    <SelectItem value="Particular">Particular</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-2"><Label>Tipo Sanguíneo</Label><Input defaultValue={patient.blood_type || ''} /></div>
               <div className="space-y-2"><Label>Alergias</Label><Input defaultValue={patient.allergies || ''} /></div>
             </div>

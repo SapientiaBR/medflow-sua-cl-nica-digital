@@ -1,11 +1,13 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { INSURANCE_OPTIONS } from '@/data/mock';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Stethoscope, Clock, Shield, MessageSquare, CreditCard, X, Plus } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Stethoscope, Clock, Shield, MessageSquare, CreditCard, X } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Settings() {
@@ -91,8 +93,14 @@ export default function Settings() {
               ))}
             </div>
             <div className="flex gap-2">
-              <Input placeholder="Adicionar convênio..." value={newInsurance} onChange={e => setNewInsurance(e.target.value)} onKeyDown={e => e.key === 'Enter' && addInsurance()} />
-              <Button variant="outline" size="icon" onClick={addInsurance} className="medflow-btn"><Plus className="h-4 w-4" /></Button>
+              <Select onValueChange={(val) => { if (!insurances.includes(val)) setInsurances(prev => [...prev, val]); }}>
+                <SelectTrigger><SelectValue placeholder="Adicionar convênio..." /></SelectTrigger>
+                <SelectContent>
+                  {INSURANCE_OPTIONS.filter(ins => !insurances.includes(ins)).map(ins => (
+                    <SelectItem key={ins} value={ins}>{ins}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </TabsContent>
