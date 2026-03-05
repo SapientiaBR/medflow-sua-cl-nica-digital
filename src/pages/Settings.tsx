@@ -14,9 +14,6 @@ export default function Settings() {
   const { doctor } = useAuth();
   const [insurances, setInsurances] = useState(doctor?.accepted_insurances || []);
 
-
-  };
-
   return (
     <div className="space-y-4 max-w-3xl">
       <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
