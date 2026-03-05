@@ -6,20 +6,26 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Specialty } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Register() {
-  const [form, setForm] = useState({ name: '', email: '', password: '', crm: '', phone: '', specialty: '' as Specialty });
+  const [form, setForm] = useState({ name: '', email: '', password: '', crm: '', phone: '', specialty: '' });
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const ok = await register({ ...form, password: form.password });
+    const { ok, error } = await register(form);
     setLoading(false);
-    if (ok) navigate('/');
+    if (ok) {
+      toast({ title: 'Conta criada!', description: 'Verifique seu email para confirmar o cadastro.' });
+      navigate('/login');
+    } else {
+      toast({ title: 'Erro ao cadastrar', description: error, variant: 'destructive' });
+    }
   };
 
   return (
@@ -58,7 +64,7 @@ export default function Register() {
             </div>
             <div className="space-y-2">
               <Label>Especialidade</Label>
-              <Select onValueChange={v => setForm(f => ({ ...f, specialty: v as Specialty }))} required>
+              <Select onValueChange={v => setForm(f => ({ ...f, specialty: v }))} required>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="endocrinologia">Endocrinologia</SelectItem>
