@@ -1,4 +1,13 @@
 import { Doctor, Patient, Appointment, MedicalRecord, Document } from '@/types';
+
+export const INSURANCE_OPTIONS = [
+  'Sulamérica',
+  'Unimed',
+  'Care Plus',
+  'Amil',
+  'Alice',
+  'Bradesco',
+] as const;
 import { format, subDays, addDays } from 'date-fns';
 
 const today = format(new Date(), 'yyyy-MM-dd');
