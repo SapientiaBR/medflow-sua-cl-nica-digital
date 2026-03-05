@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { mockAppointments, mockPatients } from '@/data/mock';
-import { format, differenceInMinutes, isToday, startOfWeek, addDays } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+import { format, differenceInMinutes, startOfWeek, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CalendarDays, Users, TrendingUp, MessageSquare, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -25,50 +26,87 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function Dashboard() {
-  const { doctor } = useAuth();
+  const { doctor, user } = useAuth();
   const navigate = useNavigate();
   const now = new Date();
-
   const todayStr = format(now, 'yyyy-MM-dd');
-  const todayAppointments = useMemo(() =>
-    mockAppointments
-      .filter(a => a.date === todayStr && a.status !== 'cancelada')
-      .sort((a, b) => a.time.localeCompare(b.time)),
-    [todayStr]
-  );
+  const monthStr = format(now, 'yyyy-MM');
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+
+  const { data: todayAppointments = [] } = useQuery({
+    queryKey: ['appointments', 'today', todayStr],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('appointments')
+        .select('*, patients(name, insurance)')
+        .eq('date', todayStr)
+        .neq('status', 'cancelada')
+        .order('time');
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const { data: monthAppointments = [] } = useQuery({
+    queryKey: ['appointments', 'month', monthStr],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('appointments')
+        .select('date, type, status')
+        .gte('date', `${monthStr}-01`)
+        .lte('date', `${monthStr}-31`);
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const { data: patientCount = 0 } = useQuery({
+    queryKey: ['patients', 'count'],
+    queryFn: async () => {
+      const { count } = await supabase.from('patients').select('*', { count: 'exact', head: true });
+      return count || 0;
+    },
+    enabled: !!user,
+  });
+
+  // Week chart data
+  const weekDates = Array.from({ length: 7 }, (_, i) => format(addDays(weekStart, i), 'yyyy-MM-dd'));
+  const { data: weekAppointments = [] } = useQuery({
+    queryKey: ['appointments', 'week', weekDates[0]],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('appointments')
+        .select('date')
+        .gte('date', weekDates[0])
+        .lte('date', weekDates[6]);
+      return data || [];
+    },
+    enabled: !!user,
+  });
 
   const nextAppointment = useMemo(() => {
     const nowTime = format(now, 'HH:mm');
-    return todayAppointments.find(a => a.time >= nowTime && (a.status === 'agendada' || a.status === 'confirmada'));
+    return todayAppointments.find((a: any) => a.time >= nowTime && (a.status === 'agendada' || a.status === 'confirmada'));
   }, [todayAppointments, now]);
 
   const minutesUntilNext = nextAppointment
-    ? differenceInMinutes(
-        new Date(`${todayStr}T${nextAppointment.time}`),
-        now
-      )
+    ? differenceInMinutes(new Date(`${todayStr}T${nextAppointment.time}`), now)
     : null;
 
-  const monthAppointments = mockAppointments.filter(a =>
-    a.date.startsWith(format(now, 'yyyy-MM'))
-  );
-  const monthCompleted = monthAppointments.filter(a => a.status === 'realizada').length;
-  const monthParticular = monthAppointments.filter(a => a.type === 'particular' && a.status !== 'cancelada').length;
+  const monthCompleted = monthAppointments.filter((a: any) => a.status === 'realizada').length;
+  const monthParticular = monthAppointments.filter((a: any) => a.type === 'particular' && a.status !== 'cancelada').length;
 
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 });
   const chartData = Array.from({ length: 7 }, (_, i) => {
-    const d = format(addDays(weekStart, i), 'yyyy-MM-dd');
+    const d = weekDates[i];
     const label = format(addDays(weekStart, i), 'EEE', { locale: ptBR });
-    const count = mockAppointments.filter(a => a.date === d).length;
+    const count = weekAppointments.filter((a: any) => a.date === d).length;
     return { day: label.charAt(0).toUpperCase() + label.slice(1), consultas: count };
   });
 
-  const getPatientName = (patientId: string) =>
-    mockPatients.find(p => p.id === patientId)?.name || 'Paciente';
+  const getPatientName = (apt: any) => apt.patients?.name || 'Paciente';
 
   return (
     <div className="space-y-6 max-w-4xl">
-      {/* Greeting */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">
           Olá, Dra. {doctor?.name?.split(' ')[0]}! 👋
@@ -78,7 +116,6 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="medflow-card flex flex-col items-center text-center">
           <CalendarDays className="h-6 w-6 text-primary mb-2" />
@@ -87,7 +124,7 @@ export default function Dashboard() {
         </div>
         <div className="medflow-card flex flex-col items-center text-center">
           <Users className="h-6 w-6 text-secondary mb-2" />
-          <span className="text-3xl font-bold text-foreground">{mockPatients.length}</span>
+          <span className="text-3xl font-bold text-foreground">{patientCount}</span>
           <span className="text-xs text-muted-foreground">Pacientes</span>
         </div>
         <div className="medflow-card flex flex-col items-center text-center">
@@ -102,7 +139,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Next Appointment */}
       {nextAppointment && (
         <div className="medflow-card border-l-4 border-l-primary">
           <div className="flex items-center gap-3">
@@ -110,7 +146,7 @@ export default function Dashboard() {
             <div className="flex-1">
               <p className="text-sm font-medium text-foreground">Próxima Consulta</p>
               <p className="text-lg font-bold text-primary">
-                {getPatientName(nextAppointment.patient_id)} — {nextAppointment.time}
+                {getPatientName(nextAppointment)} — {nextAppointment.time}
               </p>
             </div>
             <Badge className="bg-primary/10 text-primary border-0">
@@ -122,14 +158,13 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Today's Appointments List */}
       <div className="medflow-card">
         <h2 className="text-lg font-semibold mb-4 text-foreground">Consultas de Hoje</h2>
         {todayAppointments.length === 0 ? (
           <p className="text-muted-foreground text-sm">Nenhuma consulta agendada para hoje.</p>
         ) : (
           <div className="space-y-2">
-            {todayAppointments.map(apt => (
+            {todayAppointments.map((apt: any) => (
               <div
                 key={apt.id}
                 onClick={() => navigate(`/agenda`)}
@@ -138,7 +173,7 @@ export default function Dashboard() {
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-semibold text-foreground w-12">{apt.time}</span>
                   <div>
-                    <p className="text-sm font-medium text-foreground">{getPatientName(apt.patient_id)}</p>
+                    <p className="text-sm font-medium text-foreground">{getPatientName(apt)}</p>
                     <p className="text-xs text-muted-foreground capitalize">{apt.type}</p>
                   </div>
                 </div>
@@ -151,7 +186,6 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Weekly Chart */}
       <div className="medflow-card">
         <h2 className="text-lg font-semibold mb-4 text-foreground">Consultas da Semana</h2>
         <div className="h-48">

@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
-import { mockPatients, mockAppointments, INSURANCE_OPTIONS } from '@/data/mock';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
 import { format, differenceInYears, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Search, Plus, User } from 'lucide-react';
@@ -11,30 +13,81 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+
+const INSURANCE_OPTIONS = ['Sulamérica', 'Unimed', 'Care Plus', 'Amil', 'Alice', 'Bradesco'];
 
 export default function Patients() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [filterInsurance, setFilterInsurance] = useState('all');
   const [showNewModal, setShowNewModal] = useState(false);
   const navigate = useNavigate();
 
+  const [newPatient, setNewPatient] = useState({
+    name: '', phone: '', email: '', cpf: '', birth_date: '', gender: '', blood_type: '', insurance: '', allergies: '', notes: ''
+  });
+
+  const { data: patients = [] } = useQuery({
+    queryKey: ['patients', 'full'],
+    queryFn: async () => {
+      const { data } = await supabase.from('patients').select('*').order('name');
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const { data: lastAppointments = {} } = useQuery({
+    queryKey: ['patients', 'lastAppointments'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('appointments')
+        .select('patient_id, date')
+        .eq('status', 'realizada')
+        .order('date', { ascending: false });
+      const map: Record<string, string> = {};
+      (data || []).forEach((a: any) => { if (!map[a.patient_id]) map[a.patient_id] = a.date; });
+      return map;
+    },
+    enabled: !!user,
+  });
+
+  const createPatient = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('patients').insert({
+        doctor_id: user!.id,
+        name: newPatient.name,
+        phone: newPatient.phone,
+        email: newPatient.email || null,
+        cpf: newPatient.cpf || null,
+        birth_date: newPatient.birth_date,
+        gender: newPatient.gender,
+        blood_type: newPatient.blood_type || null,
+        insurance: newPatient.insurance || null,
+        allergies: newPatient.allergies || null,
+        notes: newPatient.notes || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+      setShowNewModal(false);
+      setNewPatient({ name: '', phone: '', email: '', cpf: '', birth_date: '', gender: '', blood_type: '', insurance: '', allergies: '', notes: '' });
+      toast({ title: 'Paciente cadastrado!' });
+    },
+    onError: (e: any) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
+  });
+
   const filtered = useMemo(() =>
-    mockPatients.filter(p => {
+    patients.filter((p: any) => {
       const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
       const matchesInsurance = filterInsurance === 'all' || p.insurance === filterInsurance;
       return matchesSearch && matchesInsurance;
     }),
-    [search, filterInsurance]
+    [patients, search, filterInsurance]
   );
-
-  const insurances = INSURANCE_OPTIONS;
-
-  const getLastAppointment = (patientId: string) => {
-    const apts = mockAppointments
-      .filter(a => a.patient_id === patientId && a.status === 'realizada')
-      .sort((a, b) => b.date.localeCompare(a.date));
-    return apts[0];
-  };
 
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
@@ -47,7 +100,6 @@ export default function Patients() {
         </Button>
       </div>
 
-      {/* Search & Filter */}
       <div className="flex gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -57,7 +109,7 @@ export default function Patients() {
           <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
-            {insurances.map(ins => (
+            {INSURANCE_OPTIONS.map(ins => (
               <SelectItem key={ins} value={ins}>{ins}</SelectItem>
             ))}
             <SelectItem value="Particular">Particular</SelectItem>
@@ -65,11 +117,10 @@ export default function Patients() {
         </Select>
       </div>
 
-      {/* Patient List */}
       <div className="space-y-2">
-        {filtered.map(patient => {
+        {filtered.map((patient: any) => {
           const age = differenceInYears(new Date(), parseISO(patient.birth_date));
-          const lastApt = getLastAppointment(patient.id);
+          const lastDate = lastAppointments[patient.id];
           return (
             <div
               key={patient.id}
@@ -87,9 +138,9 @@ export default function Patients() {
                 {patient.insurance && (
                   <Badge variant="outline" className="mb-1 text-xs">{patient.insurance}</Badge>
                 )}
-                {lastApt && (
+                {lastDate && (
                   <p className="text-xs text-muted-foreground">
-                    Última: {format(parseISO(lastApt.date), 'dd/MM/yy')}
+                    Última: {format(parseISO(lastDate), 'dd/MM/yy')}
                   </p>
                 )}
               </div>
@@ -109,19 +160,20 @@ export default function Patients() {
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Novo Paciente</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2"><Label>Nome Completo</Label><Input placeholder="Nome do paciente" /></div>
+            <div className="space-y-2"><Label>Nome Completo</Label><Input placeholder="Nome do paciente" value={newPatient.name} onChange={e => setNewPatient(f => ({ ...f, name: e.target.value }))} /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2"><Label>Telefone</Label><Input placeholder="(11) 99999-0000" /></div>
-              <div className="space-y-2"><Label>Email</Label><Input type="email" placeholder="email@email.com" /></div>
+              <div className="space-y-2"><Label>Telefone</Label><Input placeholder="(11) 99999-0000" value={newPatient.phone} onChange={e => setNewPatient(f => ({ ...f, phone: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>Email</Label><Input type="email" placeholder="email@email.com" value={newPatient.email} onChange={e => setNewPatient(f => ({ ...f, email: e.target.value }))} /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2"><Label>CPF</Label><Input placeholder="000.000.000-00" /></div>
-              <div className="space-y-2"><Label>Data de Nascimento</Label><Input type="date" /></div>
+              <div className="space-y-2"><Label>CPF</Label><Input placeholder="000.000.000-00" value={newPatient.cpf} onChange={e => setNewPatient(f => ({ ...f, cpf: e.target.value }))} /></div>
+              <div className="space-y-2"><Label>Data de Nascimento</Label><Input type="date" value={newPatient.birth_date} onChange={e => setNewPatient(f => ({ ...f, birth_date: e.target.value }))} /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Gênero</Label>
-                <Select><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <Select value={newPatient.gender} onValueChange={v => setNewPatient(f => ({ ...f, gender: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="masculino">Masculino</SelectItem>
                     <SelectItem value="feminino">Feminino</SelectItem>
@@ -131,7 +183,8 @@ export default function Patients() {
               </div>
               <div className="space-y-2">
                 <Label>Tipo Sanguíneo</Label>
-                <Select><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <Select value={newPatient.blood_type} onValueChange={v => setNewPatient(f => ({ ...f, blood_type: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
                     {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(t => (
                       <SelectItem key={t} value={t}>{t}</SelectItem>
@@ -142,7 +195,7 @@ export default function Patients() {
             </div>
             <div className="space-y-2">
               <Label>Convênio</Label>
-              <Select>
+              <Select value={newPatient.insurance} onValueChange={v => setNewPatient(f => ({ ...f, insurance: v }))}>
                 <SelectTrigger><SelectValue placeholder="Selecione o convênio" /></SelectTrigger>
                 <SelectContent>
                   {INSURANCE_OPTIONS.map(ins => (
@@ -152,9 +205,15 @@ export default function Patients() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2"><Label>Alergias</Label><Input placeholder="Penicilina, Dipirona..." /></div>
-            <div className="space-y-2"><Label>Observações</Label><Textarea placeholder="Observações gerais..." /></div>
-            <Button className="w-full medflow-btn" onClick={() => setShowNewModal(false)}>Cadastrar Paciente</Button>
+            <div className="space-y-2"><Label>Alergias</Label><Input placeholder="Penicilina, Dipirona..." value={newPatient.allergies} onChange={e => setNewPatient(f => ({ ...f, allergies: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>Observações</Label><Textarea placeholder="Observações gerais..." value={newPatient.notes} onChange={e => setNewPatient(f => ({ ...f, notes: e.target.value }))} /></div>
+            <Button
+              className="w-full medflow-btn"
+              disabled={!newPatient.name || !newPatient.birth_date || !newPatient.gender || createPatient.isPending}
+              onClick={() => createPatient.mutate()}
+            >
+              {createPatient.isPending ? 'Cadastrando...' : 'Cadastrar Paciente'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

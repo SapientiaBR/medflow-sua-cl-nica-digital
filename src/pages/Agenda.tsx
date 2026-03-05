@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
-import { mockAppointments, mockPatients, INSURANCE_OPTIONS } from '@/data/mock';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/contexts/AuthContext';
 import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -10,6 +12,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+
+const INSURANCE_OPTIONS = ['Sulamérica', 'Unimed', 'Care Plus', 'Amil', 'Alice', 'Bradesco'];
 
 type ViewMode = 'day' | 'week' | 'month';
 
@@ -27,20 +32,81 @@ const statusLabels: Record<string, string> = {
 
 const hours = Array.from({ length: 12 }, (_, i) => `${(i + 7).toString().padStart(2, '0')}:00`);
 
-const getInsuranceLabel = (apt: typeof mockAppointments[0]) => {
-  if (apt.type === 'particular') return 'Particular';
-  const patient = mockPatients.find(p => p.id === apt.patient_id);
-  return patient?.insurance && patient.insurance !== 'Particular' ? patient.insurance : 'Convênio';
-};
-
 export default function Agenda() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showNewModal, setShowNewModal] = useState(false);
   const [selectedApt, setSelectedApt] = useState<string | null>(null);
 
+  // New appointment form
+  const [newApt, setNewApt] = useState({ patient_id: '', date: '', time: '', duration_minutes: '30', type: 'particular' as string, insurance_code: '', notes: '' });
+
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+
+  // Compute date range for query
+  const dateRange = useMemo(() => {
+    if (viewMode === 'day') {
+      const d = format(currentDate, 'yyyy-MM-dd');
+      return { from: d, to: d };
+    } else if (viewMode === 'week') {
+      return { from: format(weekDays[0], 'yyyy-MM-dd'), to: format(weekDays[6], 'yyyy-MM-dd') };
+    } else {
+      const first = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      const wStart = startOfWeek(first, { weekStartsOn: 1 });
+      const last = addDays(wStart, 41);
+      return { from: format(wStart, 'yyyy-MM-dd'), to: format(last, 'yyyy-MM-dd') };
+    }
+  }, [viewMode, currentDate]);
+
+  const { data: appointments = [] } = useQuery({
+    queryKey: ['appointments', dateRange],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('appointments')
+        .select('*, patients(name, insurance)')
+        .gte('date', dateRange.from)
+        .lte('date', dateRange.to)
+        .order('time');
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const { data: patients = [] } = useQuery({
+    queryKey: ['patients', 'list'],
+    queryFn: async () => {
+      const { data } = await supabase.from('patients').select('id, name, insurance').order('name');
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const createAppointment = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('appointments').insert({
+        doctor_id: user!.id,
+        patient_id: newApt.patient_id,
+        date: newApt.date,
+        time: newApt.time,
+        duration_minutes: parseInt(newApt.duration_minutes),
+        type: newApt.type as any,
+        insurance_code: newApt.insurance_code || null,
+        notes: newApt.notes || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['appointments'] });
+      setShowNewModal(false);
+      setNewApt({ patient_id: '', date: '', time: '', duration_minutes: '30', type: 'particular', insurance_code: '', notes: '' });
+      toast({ title: 'Consulta agendada!' });
+    },
+    onError: (e: any) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
+  });
 
   const navigate = (dir: number) => {
     if (viewMode === 'day') setCurrentDate(d => addDays(d, dir));
@@ -49,15 +115,19 @@ export default function Agenda() {
   };
 
   const getAppointmentsForDate = (date: Date) =>
-    mockAppointments.filter(a => isSameDay(parseISO(a.date), date));
+    appointments.filter((a: any) => isSameDay(parseISO(a.date), date));
 
-  const getPatientName = (id: string) => mockPatients.find(p => p.id === id)?.name || '';
+  const getPatientName = (apt: any) => apt.patients?.name || '';
 
-  const selectedAppointment = selectedApt ? mockAppointments.find(a => a.id === selectedApt) : null;
+  const getInsuranceLabel = (apt: any) => {
+    if (apt.type === 'particular') return 'Particular';
+    return apt.patients?.insurance && apt.patients.insurance !== 'Particular' ? apt.patients.insurance : 'Convênio';
+  };
+
+  const selectedAppointment = selectedApt ? appointments.find((a: any) => a.id === selectedApt) : null;
 
   return (
     <div className="space-y-4 max-w-6xl">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Agenda</h1>
         <Button onClick={() => setShowNewModal(true)} className="medflow-btn gap-2">
@@ -65,7 +135,6 @@ export default function Agenda() {
         </Button>
       </div>
 
-      {/* Controls */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
@@ -109,14 +178,14 @@ export default function Agenda() {
                     <p className="text-lg font-bold">{format(day, 'd')}</p>
                   </div>
                   <div className="space-y-1">
-                    {apts.sort((a, b) => a.time.localeCompare(b.time)).map(apt => (
+                    {apts.sort((a: any, b: any) => a.time.localeCompare(b.time)).map((apt: any) => (
                       <div
                         key={apt.id}
                         onClick={() => setSelectedApt(apt.id)}
                         className={`p-2 rounded-lg border-l-4 cursor-pointer text-xs transition-all hover:scale-[1.02] ${statusColors[apt.status]}`}
                       >
                         <p className="font-semibold">{apt.time}</p>
-                        <p className="truncate">{getPatientName(apt.patient_id)}</p>
+                        <p className="truncate">{getPatientName(apt)}</p>
                         <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium ${
                           apt.type === 'particular'
                             ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
@@ -141,14 +210,14 @@ export default function Agenda() {
       {viewMode === 'day' && (
         <div className="space-y-1">
           {hours.map(hour => {
-            const apts = mockAppointments.filter(
-              a => a.date === format(currentDate, 'yyyy-MM-dd') && a.time.startsWith(hour.split(':')[0])
+            const apts = appointments.filter(
+              (a: any) => a.date === format(currentDate, 'yyyy-MM-dd') && a.time.startsWith(hour.split(':')[0])
             );
             return (
               <div key={hour} className="flex gap-3 py-2 border-b border-border/50">
                 <span className="text-xs text-muted-foreground w-12 pt-1">{hour}</span>
                 <div className="flex-1 space-y-1">
-                  {apts.map(apt => (
+                  {apts.map((apt: any) => (
                     <div
                       key={apt.id}
                       onClick={() => setSelectedApt(apt.id)}
@@ -156,7 +225,7 @@ export default function Agenda() {
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-semibold text-sm">{getPatientName(apt.patient_id)}</p>
+                          <p className="font-semibold text-sm">{getPatientName(apt)}</p>
                           <p className="text-xs text-muted-foreground">{apt.time} — {apt.duration_minutes}min</p>
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -204,7 +273,7 @@ export default function Agenda() {
                   <p className="text-xs font-medium">{format(day, 'd')}</p>
                   {apts.length > 0 && (
                     <div className="flex gap-0.5 mt-0.5 flex-wrap">
-                      {apts.slice(0, 3).map(a => (
+                      {apts.slice(0, 3).map((a: any) => (
                         <div key={a.id} className={`w-1.5 h-1.5 rounded-full ${
                           a.type === 'particular' ? 'bg-violet-500' : 'bg-blue-500'
                         }`} />
@@ -228,7 +297,7 @@ export default function Agenda() {
           {selectedAppointment && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <p className="text-sm"><span className="font-medium">Paciente:</span> {getPatientName(selectedAppointment.patient_id)}</p>
+                <p className="text-sm"><span className="font-medium">Paciente:</span> {getPatientName(selectedAppointment)}</p>
                 <p className="text-sm"><span className="font-medium">Data:</span> {format(parseISO(selectedAppointment.date), "d 'de' MMMM, yyyy", { locale: ptBR })}</p>
                 <p className="text-sm"><span className="font-medium">Horário:</span> {selectedAppointment.time} ({selectedAppointment.duration_minutes}min)</p>
                 <p className="text-sm"><span className="font-medium">Tipo:</span> <span className="capitalize">{selectedAppointment.type}</span></p>
@@ -253,10 +322,10 @@ export default function Agenda() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Paciente</Label>
-              <Select>
+              <Select value={newApt.patient_id} onValueChange={v => setNewApt(f => ({ ...f, patient_id: v }))}>
                 <SelectTrigger><SelectValue placeholder="Selecione o paciente" /></SelectTrigger>
                 <SelectContent>
-                  {mockPatients.map(p => (
+                  {patients.map((p: any) => (
                     <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -265,17 +334,17 @@ export default function Agenda() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Data</Label>
-                <Input type="date" />
+                <Input type="date" value={newApt.date} onChange={e => setNewApt(f => ({ ...f, date: e.target.value }))} />
               </div>
               <div className="space-y-2">
                 <Label>Horário</Label>
-                <Input type="time" />
+                <Input type="time" value={newApt.time} onChange={e => setNewApt(f => ({ ...f, time: e.target.value }))} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Duração</Label>
-                <Select defaultValue="30">
+                <Select value={newApt.duration_minutes} onValueChange={v => setNewApt(f => ({ ...f, duration_minutes: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="15">15 min</SelectItem>
@@ -287,8 +356,8 @@ export default function Agenda() {
               </div>
               <div className="space-y-2">
                 <Label>Tipo</Label>
-                <Select>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <Select value={newApt.type} onValueChange={v => setNewApt(f => ({ ...f, type: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="particular">Particular</SelectItem>
                     <SelectItem value="convenio">Convênio</SelectItem>
@@ -296,22 +365,30 @@ export default function Agenda() {
                 </Select>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Convênio</Label>
-              <Select>
-                <SelectTrigger><SelectValue placeholder="Selecione o convênio" /></SelectTrigger>
-                <SelectContent>
-                  {INSURANCE_OPTIONS.map(ins => (
-                    <SelectItem key={ins} value={ins}>{ins}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {newApt.type === 'convenio' && (
+              <div className="space-y-2">
+                <Label>Convênio</Label>
+                <Select value={newApt.insurance_code} onValueChange={v => setNewApt(f => ({ ...f, insurance_code: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecione o convênio" /></SelectTrigger>
+                  <SelectContent>
+                    {INSURANCE_OPTIONS.map(ins => (
+                      <SelectItem key={ins} value={ins}>{ins}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Observações</Label>
-              <Textarea placeholder="Observações opcionais..." />
+              <Textarea placeholder="Observações opcionais..." value={newApt.notes} onChange={e => setNewApt(f => ({ ...f, notes: e.target.value }))} />
             </div>
-            <Button className="w-full medflow-btn" onClick={() => setShowNewModal(false)}>Agendar Consulta</Button>
+            <Button
+              className="w-full medflow-btn"
+              disabled={!newApt.patient_id || !newApt.date || !newApt.time || createAppointment.isPending}
+              onClick={() => createAppointment.mutate()}
+            >
+              {createAppointment.isPending ? 'Agendando...' : 'Agendar Consulta'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
