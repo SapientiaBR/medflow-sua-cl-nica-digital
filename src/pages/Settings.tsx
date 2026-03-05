@@ -13,13 +13,8 @@ import { useState } from 'react';
 export default function Settings() {
   const { doctor } = useAuth();
   const [insurances, setInsurances] = useState(doctor?.accepted_insurances || []);
-  const [newInsurance, setNewInsurance] = useState('');
 
-  const addInsurance = () => {
-    if (newInsurance.trim()) {
-      setInsurances(prev => [...prev, newInsurance.trim()]);
-      setNewInsurance('');
-    }
+
   };
 
   return (
