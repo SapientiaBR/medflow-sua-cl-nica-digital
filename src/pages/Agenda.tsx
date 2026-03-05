@@ -27,6 +27,12 @@ const statusLabels: Record<string, string> = {
 
 const hours = Array.from({ length: 12 }, (_, i) => `${(i + 7).toString().padStart(2, '0')}:00`);
 
+const getInsuranceLabel = (apt: typeof mockAppointments[0]) => {
+  if (apt.type === 'particular') return 'Particular';
+  const patient = mockPatients.find(p => p.id === apt.patient_id);
+  return patient?.insurance && patient.insurance !== 'Particular' ? patient.insurance : 'Convênio';
+};
+
 export default function Agenda() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
