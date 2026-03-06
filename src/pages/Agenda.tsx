@@ -161,7 +161,7 @@ export default function Agenda() {
   };
 
   const getAppointmentsForDate = (date: Date) =>
-    appointments.filter((a: any) => isSameDay(parseISO(a.date), date));
+    appointments.filter((a: any) => isSameDay(parseISO(a.date), date) && a.status !== 'cancelada');
 
   const getPatientName = (apt: any) => apt.patients?.name || '';
 
