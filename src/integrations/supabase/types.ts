@@ -75,6 +75,7 @@ export type Database = {
         Row: {
           accepted_insurances: string[] | null
           avatar_url: string | null
+          avg_consultation_price: number | null
           created_at: string
           crm: string
           email: string
@@ -88,6 +89,7 @@ export type Database = {
         Insert: {
           accepted_insurances?: string[] | null
           avatar_url?: string | null
+          avg_consultation_price?: number | null
           created_at?: string
           crm?: string
           email: string
@@ -101,6 +103,7 @@ export type Database = {
         Update: {
           accepted_insurances?: string[] | null
           avatar_url?: string | null
+          avg_consultation_price?: number | null
           created_at?: string
           crm?: string
           email?: string
@@ -173,6 +176,53 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integrations_config: {
+        Row: {
+          ai_active: boolean | null
+          ai_instructions: string | null
+          ai_tone: string | null
+          created_at: string
+          doctor_id: string
+          evolution_api_key: string | null
+          evolution_api_url: string | null
+          evolution_instance_id: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          ai_active?: boolean | null
+          ai_instructions?: string | null
+          ai_tone?: string | null
+          created_at?: string
+          doctor_id: string
+          evolution_api_key?: string | null
+          evolution_api_url?: string | null
+          evolution_instance_id?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_active?: boolean | null
+          ai_instructions?: string | null
+          ai_tone?: string | null
+          created_at?: string
+          doctor_id?: string
+          evolution_api_key?: string | null
+          evolution_api_url?: string | null
+          evolution_instance_id?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integrations_config_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: true
+            referencedRelation: "doctors"
             referencedColumns: ["id"]
           },
         ]
