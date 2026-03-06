@@ -117,6 +117,36 @@ export default function Consultation() {
     return formatDate(dppDate, 'dd/MM/yyyy', { locale: ptBR });
   }, [dum]);
 
+  const handleGeneratePDF = async (type: 'receita' | 'exame') => {
+    toast({ title: 'Gerando documento...', description: 'Enviando para o n8n...' });
+
+    let content = '';
+    if (type === 'receita') {
+      content = form.conduta || form.medicamentos || 'Receita gerada pelo sistema.';
+    } else {
+      content = Object.keys(form).filter(k => k.startsWith('exam_') && form[k]).map(k => k.replace('exam_', '')).join(', ') || 'Pedido de exames de rotina';
+    }
+
+    try {
+      await fetch('https://n8n.sapientiabr.cloud/webhook/medflow-gerar-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          patient_name: patient.name,
+          patient_phone: patient.phone || '',
+          doctor_name: doctor?.name || 'Dr(a).',
+          type: type,
+          content: content,
+          date: formatDate(new Date(), 'dd/MM/yyyy')
+        })
+      });
+      toast({ title: 'Enviado para processamento!' });
+    } catch (err) {
+      console.error('Erro webhook:', err);
+      toast({ title: 'Erro ao enviar.', variant: 'destructive' });
+    }
+  };
+
   if (!appointment || !patient) {
     return <div className="text-center py-20 text-muted-foreground">Carregando consulta...</div>;
   }
@@ -274,6 +304,11 @@ export default function Consultation() {
           </div>
         </div>
       )}
+
+      <div className="flex gap-3 pt-4">
+        <Button variant="outline" className="flex-1" onClick={() => handleGeneratePDF('receita')}>Gerar e Enviar Receita</Button>
+        <Button variant="outline" className="flex-1" onClick={() => handleGeneratePDF('exame')}>Gerar Pedido de Exames</Button>
+      </div>
 
       <Button
         className="w-full medflow-btn text-lg py-6"

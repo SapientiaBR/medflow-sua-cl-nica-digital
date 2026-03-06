@@ -14,6 +14,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   register: (data: { name: string; email: string; password: string; crm: string; phone: string; specialty: string }) => Promise<{ ok: boolean; error?: string }>;
   logout: () => Promise<void>;
+  refreshDoctor: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -84,8 +85,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setDoctor(null);
   };
 
+  const refreshDoctor = async () => {
+    if (session?.user) {
+      await fetchDoctor(session.user.id);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ doctor, user, session, isAuthenticated, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ doctor, user, session, isAuthenticated, loading, login, register, logout, refreshDoctor }}>
       {children}
     </AuthContext.Provider>
   );
