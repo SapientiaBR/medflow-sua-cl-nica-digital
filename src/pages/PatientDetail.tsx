@@ -94,21 +94,14 @@ export default function PatientDetail() {
     onError: (e: any) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
   });
 
-  if (isLoading) return <div className="text-center py-20 text-muted-foreground">Carregando...</div>;
-  if (!patient) return <div className="text-center py-20 text-muted-foreground">Paciente não encontrado</div>;
-
-  const age = differenceInYears(new Date(), parseISO(patient.birth_date));
-  const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-  const specialty = doctor?.specialty || 'endocrinologia';
-
-  // Process evolution data from medical records
+  // Process evolution data - must be before early returns to respect hooks rules
   const evolutionData = useMemo(() => {
     return medicalRecords.map((record: any) => {
       const date = format(parseISO(record.created_at), 'dd/MM');
       const content = record.content || {};
       return {
         data: date,
-        glicemia: content.exam_Glicemia_Jejum ? content.glicemia_val : content.glicemia || null, // Handle both structures
+        glicemia: content.exam_Glicemia_Jejum ? content.glicemia_val : content.glicemia || null,
         imc: content.imc || (content.peso && content.altura ? (content.peso / (content.altura ** 2)).toFixed(1) : null),
         peso: content.peso || null,
         altura_uterina: content.au || null,
@@ -117,6 +110,14 @@ export default function PatientDetail() {
       };
     });
   }, [medicalRecords]);
+
+  if (isLoading) return <div className="text-center py-20 text-muted-foreground">Carregando...</div>;
+  if (!patient) return <div className="text-center py-20 text-muted-foreground">Paciente não encontrado</div>;
+
+  const age = differenceInYears(new Date(), parseISO(patient.birth_date));
+  const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  const specialty = doctor?.specialty || 'endocrinologia';
+
 
   return (
     <div className="space-y-4 max-w-4xl">
