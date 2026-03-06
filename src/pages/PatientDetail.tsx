@@ -47,6 +47,11 @@ export default function PatientDetail() {
   });
 
   const { data: documents = [] } = useQuery({
+    queryKey: ['patient-documents', id],
+    queryFn: async () => {
+      const { data } = await supabase.from('documents').select('*').eq('patient_id', id!).order('created_at', { ascending: false });
+      return data || [];
+    },
     enabled: !!id && !!user,
   });
 
