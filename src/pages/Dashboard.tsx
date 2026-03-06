@@ -1,12 +1,11 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { format, differenceInMinutes, startOfWeek, addDays } from 'date-fns';
+import { format, differenceInMinutes, startOfWeek, addDays, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarDays, Users, TrendingUp, MessageSquare, Clock } from 'lucide-react';
+import { CalendarDays, Users, TrendingUp, MessageSquare, Clock, Eye, EyeOff } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
 const statusColors: Record<string, string> = {
@@ -32,6 +31,7 @@ export default function Dashboard() {
   const todayStr = format(now, 'yyyy-MM-dd');
   const monthStr = format(now, 'yyyy-MM');
   const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+  const [showRevenue, setShowRevenue] = useState(false);
 
   const { data: todayAppointments = [] } = useQuery({
     queryKey: ['appointments', 'today', todayStr],
@@ -69,16 +69,17 @@ export default function Dashboard() {
     enabled: !!user,
   });
 
-  // Week chart data
-  const weekDates = Array.from({ length: 7 }, (_, i) => format(addDays(weekStart, i), 'yyyy-MM-dd'));
+  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const { data: weekAppointments = [] } = useQuery({
-    queryKey: ['appointments', 'week', weekDates[0]],
+    queryKey: ['appointments', 'week', format(weekDates[0], 'yyyy-MM-dd')],
     queryFn: async () => {
       const { data } = await supabase
         .from('appointments')
-        .select('date')
-        .gte('date', weekDates[0])
-        .lte('date', weekDates[6]);
+        .select('date, time, status, patients(name)')
+        .gte('date', format(weekDates[0], 'yyyy-MM-dd'))
+        .lte('date', format(weekDates[6], 'yyyy-MM-dd'))
+        .neq('status', 'cancelada')
+        .order('time');
       return data || [];
     },
     enabled: !!user,
@@ -95,13 +96,7 @@ export default function Dashboard() {
 
   const monthCompleted = monthAppointments.filter((a: any) => a.status === 'realizada').length;
   const monthParticular = monthAppointments.filter((a: any) => a.type === 'particular' && a.status !== 'cancelada').length;
-
-  const chartData = Array.from({ length: 7 }, (_, i) => {
-    const d = weekDates[i];
-    const label = format(addDays(weekStart, i), 'EEE', { locale: ptBR });
-    const count = weekAppointments.filter((a: any) => a.date === d).length;
-    return { day: label.charAt(0).toUpperCase() + label.slice(1), consultas: count };
-  });
+  const revenueValue = (monthParticular * (doctor?.avg_consultation_price || 350)).toLocaleString('pt-BR');
 
   const getPatientName = (apt: any) => apt.patients?.name || 'Paciente';
 
@@ -132,10 +127,18 @@ export default function Dashboard() {
           <span className="text-3xl font-bold text-foreground">{monthCompleted}</span>
           <span className="text-xs text-muted-foreground">Realizadas (Mês)</span>
         </div>
-        <div className="medflow-card flex flex-col items-center text-center">
+        <div className="medflow-card flex flex-col items-center text-center relative">
           <MessageSquare className="h-6 w-6 text-info mb-2" />
-          <span className="text-3xl font-bold text-foreground">R$ {(monthParticular * (doctor?.avg_consultation_price || 350)).toLocaleString('pt-BR')}</span>
+          <span className="text-3xl font-bold text-foreground">
+            {showRevenue ? `R$ ${revenueValue}` : 'R$ •••••'}
+          </span>
           <span className="text-xs text-muted-foreground">Faturamento Particular Est.</span>
+          <button
+            onClick={() => setShowRevenue(v => !v)}
+            className="absolute top-2 right-2 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors"
+          >
+            {showRevenue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
         </div>
       </div>
 
@@ -186,17 +189,40 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Week Calendar */}
       <div className="medflow-card">
-        <h2 className="text-lg font-semibold mb-4 text-foreground">Consultas da Semana</h2>
-        <div className="h-48">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData}>
-              <XAxis dataKey="day" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-              <Tooltip />
-              <Bar dataKey="consultas" fill="hsl(174, 84%, 32%)" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+        <h2 className="text-lg font-semibold mb-4 text-foreground">Semana</h2>
+        <div className="grid grid-cols-7 gap-2">
+          {weekDates.map((date, i) => {
+            const dateStr = format(date, 'yyyy-MM-dd');
+            const isToday = isSameDay(date, now);
+            const dayAppts = weekAppointments.filter((a: any) => a.date === dateStr);
+            const count = dayAppts.length;
+
+            return (
+              <div
+                key={i}
+                onClick={() => navigate('/agenda')}
+                className={`rounded-xl p-3 text-center cursor-pointer transition-all hover:shadow-md ${
+                  isToday
+                    ? 'bg-primary text-primary-foreground ring-2 ring-primary/30'
+                    : 'bg-accent/30 hover:bg-accent/50'
+                }`}
+              >
+                <p className={`text-xs font-medium ${isToday ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                  {format(date, 'EEE', { locale: ptBR }).slice(0, 3).toUpperCase()}
+                </p>
+                <p className={`text-lg font-bold ${isToday ? 'text-primary-foreground' : 'text-foreground'}`}>
+                  {format(date, 'd')}
+                </p>
+                {count > 0 && (
+                  <Badge className={`text-[10px] mt-1 ${isToday ? 'bg-primary-foreground/20 text-primary-foreground border-0' : 'bg-primary/10 text-primary border-0'}`}>
+                    {count}
+                  </Badge>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
