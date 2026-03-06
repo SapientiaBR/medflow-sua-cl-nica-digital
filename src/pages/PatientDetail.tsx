@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 const INSURANCE_OPTIONS = ['Sulamérica', 'Unimed', 'Care Plus', 'Amil', 'Alice', 'Bradesco'];
 
@@ -24,7 +24,7 @@ const statusLabels: Record<string, string> = {
 export default function PatientDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { doctor, user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -47,9 +47,13 @@ export default function PatientDetail() {
   });
 
   const { data: documents = [] } = useQuery({
-    queryKey: ['patient-documents', id],
+    enabled: !!id && !!user,
+  });
+
+  const { data: medicalRecords = [] } = useQuery({
+    queryKey: ['patient-records', id],
     queryFn: async () => {
-      const { data } = await supabase.from('documents').select('*').eq('patient_id', id).order('created_at', { ascending: false });
+      const { data } = await supabase.from('medical_records').select('*').eq('patient_id', id).order('created_at', { ascending: true });
       return data || [];
     },
     enabled: !!id && !!user,
@@ -89,15 +93,24 @@ export default function PatientDetail() {
 
   const age = differenceInYears(new Date(), parseISO(patient.birth_date));
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  const specialty = doctor?.specialty || 'endocrinologia';
 
-  // Mock evolution data (will come from medical_records later)
-  const evolutionData = [
-    { data: '01/Jan', glicemia: 180, imc: 30.1 },
-    { data: '15/Jan', glicemia: 165, imc: 29.8 },
-    { data: '01/Fev', glicemia: 152, imc: 29.5 },
-    { data: '15/Fev', glicemia: 140, imc: 29.2 },
-    { data: '01/Mar', glicemia: 135, imc: 28.9 },
-  ];
+  // Process evolution data from medical records
+  const evolutionData = useMemo(() => {
+    return medicalRecords.map((record: any) => {
+      const date = format(parseISO(record.created_at), 'dd/MM');
+      const content = record.content || {};
+      return {
+        data: date,
+        glicemia: content.exam_Glicemia_Jejum ? content.glicemia_val : content.glicemia || null, // Handle both structures
+        imc: content.imc || (content.peso && content.altura ? (content.peso / (content.altura ** 2)).toFixed(1) : null),
+        peso: content.peso || null,
+        altura_uterina: content.au || null,
+        perimetro_cefalico: content.pc || null,
+        estatura: content.altura || null,
+      };
+    });
+  }, [medicalRecords]);
 
   return (
     <div className="space-y-4 max-w-4xl">
@@ -194,32 +207,104 @@ export default function PatientDetail() {
         </TabsContent>
 
         <TabsContent value="evolucao" className="mt-4 space-y-4">
-          <div className="medflow-card">
-            <h3 className="font-semibold mb-3">Glicemia de Jejum (mg/dL)</h3>
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={evolutionData}>
-                  <XAxis dataKey="data" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="glicemia" stroke="hsl(174, 84%, 32%)" strokeWidth={2} dot={{ r: 4 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-          <div className="medflow-card">
-            <h3 className="font-semibold mb-3">IMC</h3>
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={evolutionData}>
-                  <XAxis dataKey="data" tick={{ fontSize: 11 }} />
-                  <YAxis domain={[25, 35]} tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="imc" stroke="hsl(172, 66%, 40%)" strokeWidth={2} dot={{ r: 4 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+          {evolutionData.length === 0 ? (
+            <p className="text-muted-foreground text-sm text-center py-8">Dados insuficientes para gerar gráficos</p>
+          ) : (
+            <>
+              {specialty === 'endocrinologia' && (
+                <>
+                  <div className="medflow-card">
+                    <h3 className="font-semibold mb-3">Evolução Glicêmica (mg/dL)</h3>
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={evolutionData}>
+                          <XAxis dataKey="data" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 11 }} />
+                          <Tooltip />
+                          <Line type="monotone" dataKey="glicemia" stroke="hsl(174, 84%, 32%)" strokeWidth={2} connectNulls />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <div className="medflow-card">
+                    <h3 className="font-semibold mb-3">Evolução IMC</h3>
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={evolutionData}>
+                          <XAxis dataKey="data" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 11 }} domain={['auto', 'auto']} />
+                          <Tooltip />
+                          <Line type="monotone" dataKey="imc" stroke="hsl(172, 66%, 40%)" strokeWidth={2} connectNulls />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {specialty === 'obstetricia' && (
+                <>
+                  <div className="medflow-card">
+                    <h3 className="font-semibold mb-3">Altura Uterina (cm)</h3>
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={evolutionData}>
+                          <XAxis dataKey="data" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 11 }} />
+                          <Tooltip />
+                          <Line type="monotone" dataKey="altura_uterina" stroke="hsl(174, 84%, 32%)" strokeWidth={2} connectNulls />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <div className="medflow-card">
+                    <h3 className="font-semibold mb-3">Peso Materno (kg)</h3>
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={evolutionData}>
+                          <XAxis dataKey="data" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 11 }} domain={['auto', 'auto']} />
+                          <Tooltip />
+                          <Line type="monotone" dataKey="peso" stroke="hsl(172, 66%, 40%)" strokeWidth={2} connectNulls />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {specialty === 'pediatria' && (
+                <>
+                  <div className="medflow-card">
+                    <h3 className="font-semibold mb-3">Peso (kg)</h3>
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={evolutionData}>
+                          <XAxis dataKey="data" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 11 }} domain={['auto', 'auto']} />
+                          <Tooltip />
+                          <Line type="monotone" dataKey="peso" stroke="hsl(174, 84%, 32%)" strokeWidth={2} connectNulls />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  <div className="medflow-card">
+                    <h3 className="font-semibold mb-3">Perímetro Cefálico (cm)</h3>
+                    <div className="h-48">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={evolutionData}>
+                          <XAxis dataKey="data" tick={{ fontSize: 11 }} />
+                          <YAxis tick={{ fontSize: 11 }} domain={['auto', 'auto']} />
+                          <Tooltip />
+                          <Line type="monotone" dataKey="perimetro_cefalico" stroke="hsl(172, 66%, 40%)" strokeWidth={2} connectNulls />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </>
+              )}
+            </>
+          )}
         </TabsContent>
       </Tabs>
     </div>

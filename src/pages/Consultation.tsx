@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
-import { differenceInYears, parseISO } from 'date-fns';
+import { differenceInYears, parseISO, differenceInDays, addDays, format as formatDate, addMonths } from 'date-fns';
 import { ArrowLeft, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,6 +38,7 @@ export default function Consultation() {
   const [form, setForm] = useState<Record<string, any>>({});
   const [peso, setPeso] = useState('');
   const [altura, setAltura] = useState('');
+  const [dum, setDum] = useState('');
 
   const saveMedicalRecord = useMutation({
     mutationFn: async () => {
@@ -67,6 +68,24 @@ export default function Consultation() {
   const age = differenceInYears(new Date(), parseISO(patient.birth_date));
   const imc = peso && altura ? (parseFloat(peso) / (parseFloat(altura) ** 2)).toFixed(1) : '—';
   const specialty = doctor?.specialty || 'endocrinologia';
+
+  // Obstetrics calculations
+  const ig = useMemo(() => {
+    if (!dum) return null;
+    const dumDate = parseISO(dum);
+    const diffDays = differenceInDays(new Date(), dumDate);
+    if (diffDays < 0) return null;
+    const weeks = Math.floor(diffDays / 7);
+    const days = diffDays % 7;
+    return `${weeks} sem e ${days} dias`;
+  }, [dum]);
+
+  const dpp = useMemo(() => {
+    if (!dum) return null;
+    const dumDate = parseISO(dum);
+    const dppDate = addDays(addMonths(dumDate, 9), 7);
+    return formatDate(dppDate, 'dd/MM/yyyy', { locale: ptBR });
+  }, [dum]);
 
   return (
     <div className="space-y-4 max-w-3xl">
@@ -135,9 +154,29 @@ export default function Consultation() {
           <div className="medflow-card space-y-4">
             <h2 className="font-semibold text-foreground">Pré-Natal</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              <div className="space-y-2"><Label>DUM</Label><Input type="date" onChange={e => setForm(f => ({ ...f, dum: e.target.value }))} /></div>
-              <div className="space-y-2"><Label>IG (semanas)</Label><div className="h-10 flex items-center px-3 rounded-md border bg-muted text-sm">—</div></div>
-              <div className="space-y-2"><Label>DPP</Label><div className="h-10 flex items-center px-3 rounded-md border bg-muted text-sm">—</div></div>
+              <div className="space-y-2">
+                <Label>DUM</Label>
+                <Input
+                  type="date"
+                  value={dum}
+                  onChange={e => {
+                    setDum(e.target.value);
+                    setForm(f => ({ ...f, dum: e.target.value }));
+                  }}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>IG (semanas)</Label>
+                <div className="h-10 flex items-center px-3 rounded-md border bg-muted text-sm font-semibold">
+                  {ig || '—'}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>DPP</Label>
+                <div className="h-10 flex items-center px-3 rounded-md border bg-muted text-sm font-semibold">
+                  {dpp || '—'}
+                </div>
+              </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="space-y-2"><Label>Peso (kg)</Label><Input type="number" placeholder="0.0" onChange={e => setPeso(e.target.value)} /></div>
@@ -170,6 +209,27 @@ export default function Consultation() {
           <div className="medflow-card space-y-4">
             <h2 className="font-semibold text-foreground">Alimentação</h2>
             <Textarea placeholder="Amamentação, fórmula, introdução alimentar..." rows={3} onChange={e => setForm(f => ({ ...f, alimentacao: e.target.value }))} />
+          </div>
+          <div className="medflow-card space-y-4">
+            <h2 className="font-semibold text-foreground">Calendário Vacinal</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-2">
+              {[
+                'BCG (Dose única)', 'Hepatite B (Ao nascer)', 'Pentavalente (2, 4, 6 meses)',
+                'VIP/VOP (Pólio)', 'Rotavírus (2, 4 meses)', 'Pneumocócica 10V',
+                'Meningocócica C (3, 5 meses)', 'Hepatite A (15 meses)',
+                'Tríplice Viral (12, 15 meses)', 'Tetra Viral', 'DTP', 'Varicela',
+                'Febre Amarela (9 meses)', 'Gripe (Anual)'
+              ].map(vac => (
+                <div key={vac} className="flex items-center gap-2">
+                  <Checkbox
+                    id={vac}
+                    checked={form[`vac_${vac}`] || false}
+                    onCheckedChange={checked => setForm(f => ({ ...f, [`vac_${vac}`]: checked }))}
+                  />
+                  <label htmlFor={vac} className="text-sm cursor-pointer">{vac}</label>
+                </div>
+              ))}
+            </div>
           </div>
           <div className="medflow-card space-y-4">
             <h2 className="font-semibold text-foreground">Conduta</h2>

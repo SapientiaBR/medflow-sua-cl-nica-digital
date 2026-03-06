@@ -1,0 +1,144 @@
+{
+    "name": "MedFlow: Gerar e Enviar PDF",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "medflow-gerar-pdf",
+                "options": {}
+            },
+            "id": "1",
+            "name": "Webhook Supabase / Frontend",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                200,
+                300
+            ],
+            "webhookId": "medflow-gerar-pdf"
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "SELECT * FROM public.integrations_config WHERE doctor_id = $1 LIMIT 1;",
+                "additionalFields": {
+                    "queryParams": "={{ $json.body.doctor_id }}"
+                }
+            },
+            "id": "2",
+            "name": "Buscar ConfigSupabase",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.1,
+            "position": [
+                400,
+                300
+            ],
+            "credentials": {
+                "postgres": {
+                    "id": "supabase-cred-id",
+                    "name": "Supabase MedFlow"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "content": "=\n<!DOCTYPE html>\n<html>\n<head>\n<style>\n  body { font-family: 'Helvetica', sans-serif; padding: 40px; }\n  .header { text-align: center; border-bottom: 2px solid #0d9488; padding-bottom: 20px; margin-bottom: 30px; }\n  .clinic-name { color: #0d9488; font-size: 24px; font-weight: bold; }\n  .doctor-name { font-size: 18px; margin-top: 10px; }\n  .patient-info { margin-bottom: 40px; }\n  .content { min-height: 400px; font-size: 16px; line-height: 1.6; }\n  .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #666; }\n  .signature { margin-top: 80px; text-align: center; }\n  .signature-line { border-top: 1px solid #000; width: 200px; margin: 0 auto; padding-top: 5px; }\n</style>\n</head>\n<body>\n  <div class=\"header\">\n    <div class=\"clinic-name\">MedFlow</div>\n    <div class=\"doctor-name\">Dr(a). {{ $('Webhook Supabase / Frontend').item.json.body.doctor_name }}</div>\n    <div class=\"crm\">CRM: {{ $('Webhook Supabase / Frontend').item.json.body.doctor_crm }}</div>\n  </div>\n\n  <div class=\"patient-info\">\n    <strong>Paciente:</strong> {{ $('Webhook Supabase / Frontend').item.json.body.patient_name }}<br>\n    <strong>Data:</strong> {{ $now.setZone('America/Sao_Paulo').format('dd/MM/yyyy') }}\n  </div>\n\n  <h2 style=\"text-align: center; margin-bottom: 30px;\">{{ $('Webhook Supabase / Frontend').item.json.body.document_type === 'receita' ? 'RECEITUÁRIO' : 'PEDIDO DE EXAMES' }}</h2>\n\n  <div class=\"content\">\n    {{ $('Webhook Supabase / Frontend').item.json.body.content.replace(/\\n/g, '<br>') }}\n  </div>\n\n  <div class=\"signature\">\n    <div class=\"signature-line\">Assinatura e Carimbo</div>\n  </div>\n</body>\n</html>"
+            },
+            "id": "3",
+            "name": "HTML",
+            "type": "n8n-nodes-base.html",
+            "typeVersion": 1,
+            "position": [
+                600,
+                300
+            ]
+        },
+        {
+            "parameters": {},
+            "id": "4",
+            "name": "Convert to File",
+            "type": "n8n-nodes-base.htmlToPdf",
+            "typeVersion": 1,
+            "position": [
+                800,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $('Buscar ConfigSupabase').item.json.evolution_api_url }}/message/sendMedia/{{ $('Buscar ConfigSupabase').item.json.evolution_instance_id }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "={{ $('Buscar ConfigSupabase').item.json.evolution_api_key }}"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $('Webhook Supabase / Frontend').item.json.body.patient_phone }}\",\n  \"mediaMessage\": {\n    \"mediatype\": \"document\",\n    \"fileName\": \"{{ $('Webhook Supabase / Frontend').item.json.body.document_type }}.pdf\",\n    \"caption\": \"Olá! Segue em anexo o documento gerado na sua consulta com Dr(a). {{ $('Webhook Supabase / Frontend').item.json.body.doctor_name }}.\",\n    \"media\": \"={{ $binary.data.data }}\"\n  }\n}",
+                "options": {}
+            },
+            "id": "5",
+            "name": "Evolution API - Enviar PDF",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                1000,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook Supabase / Frontend": {
+            "main": [
+                [
+                    {
+                        "node": "Buscar ConfigSupabase",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Buscar ConfigSupabase": {
+            "main": [
+                [
+                    {
+                        "node": "HTML",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "HTML": {
+            "main": [
+                [
+                    {
+                        "node": "Convert to File",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Convert to File": {
+            "main": [
+                [
+                    {
+                        "node": "Evolution API - Enviar PDF",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

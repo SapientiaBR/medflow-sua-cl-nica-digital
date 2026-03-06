@@ -1,0 +1,95 @@
+{
+    "name": "MedFlow: Avisos de Agendamentos",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "medflow-webhook-agendamentos",
+                "options": {}
+            },
+            "id": "e4f016f4-1234-4567-89ab-cdef01234567",
+            "name": "Webhook Supabase",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ],
+            "webhookId": "medflow-webhook-agendamentos"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $json.body.record.evolution_api_url }}/message/sendText/{{ $json.body.record.evolution_instance_id }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "={{ $json.body.record.evolution_api_key }}"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $json.body.record.patient_phone }}\",\n  \"text\": \"Olá {{ $json.body.record.patient_name }}! 👋\\n\\nAqui é a secretária digital da MedFlow.\\n\\nSeu agendamento foi confirmado para o dia *{{ $json.body.record.appointment_date }}* às *{{ $json.body.record.appointment_time }}*. \\n\\nSe precisar reagendar ou se tiver qualquer dúvida, é só me mandar uma mensagem por aqui mesmo!😊\"\n}",
+                "options": {}
+            },
+            "id": "f5a016f4-2345-4567-89ab-cdef01234567",
+            "name": "Evolution API - Enviar Confirmação",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.1,
+            "position": [
+                750,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "string": [
+                        {
+                            "value1": "={{ $json.body.type }}",
+                            "value2": "INSERT"
+                        }
+                    ]
+                }
+            },
+            "id": "g6b016f4-3456-4567-89ab-cdef01234567",
+            "name": "Apenas Novos Agendamentos",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                500,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook Supabase": {
+            "main": [
+                [
+                    {
+                        "node": "Apenas Novos Agendamentos",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Apenas Novos Agendamentos": {
+            "main": [
+                [
+                    {
+                        "node": "Evolution API - Enviar Confirmação",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

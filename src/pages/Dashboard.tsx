@@ -134,8 +134,8 @@ export default function Dashboard() {
         </div>
         <div className="medflow-card flex flex-col items-center text-center">
           <MessageSquare className="h-6 w-6 text-info mb-2" />
-          <span className="text-3xl font-bold text-foreground">R$ {(monthParticular * 350).toLocaleString('pt-BR')}</span>
-          <span className="text-xs text-muted-foreground">Faturamento Est.</span>
+          <span className="text-3xl font-bold text-foreground">R$ {(monthParticular * (doctor?.avg_consultation_price || 350)).toLocaleString('pt-BR')}</span>
+          <span className="text-xs text-muted-foreground">Faturamento Particular Est.</span>
         </div>
       </div>
 
