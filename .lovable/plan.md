@@ -1,23 +1,27 @@
 
 
-# Conectar aba Secretária IA + corrigir build errors
+# Salvar horários de atendimento + formatar horas sem segundos
 
-## Build errors a corrigir primeiro
+## Contexto
 
-### 1. `Consultation.tsx` — faltam imports
-- Adicionar `useMemo` ao import do React
-- Adicionar `import { ptBR } from 'date-fns/locale'`
+A aba "Horários" em Settings usa inputs `defaultValue` não controlados e o botão "Salvar Horários" não faz nada. O campo `time` no banco é `time without time zone`, que retorna `HH:mm:ss` — precisamos exibir apenas `HH:mm` em todo o app.
 
-### 2. `PatientDetail.tsx` — query incompleta (linha 49-51)
-- A query de `documents` não tem `queryKey` nem `queryFn` — adicionar ambos para buscar documentos do paciente
+## Alterações
 
-## Feature: Aba Secretária IA funcional
+### 1. `src/pages/Settings.tsx` — Aba Horários funcional
 
-### Em `src/pages/Settings.tsx`:
+- Criar estado local `workingHours` inicializado a partir de `doctor?.working_hours`, com estrutura `{ [key]: { active: boolean, inicio: string, fim: string } }` para os 6 dias.
+- Trocar `defaultChecked`/`defaultValue` por `checked`/`value` controlados.
+- Criar mutation `updateWorkingHours` que faz `supabase.from('doctors').update({ working_hours }).eq('id', user.id)`.
+- Conectar o botão "Salvar Horários" à mutation com toast de feedback.
 
-1. **Carregar config existente** — `useQuery` para buscar `integrations_config` do doctor logado
-2. **Estado local** — campos: `evolution_api_url`, `evolution_api_key`, `evolution_instance_id`, `ai_active`, `ai_tone`, `ai_instructions`
-3. **Salvar** — mutation com upsert (`onConflict: 'doctor_id'`) na tabela `integrations_config`
-4. **UI da aba "ia"** — substituir os inputs estáticos por inputs controlados ligados ao estado, com o switch de `ai_active` funcional e campos para URL/key/instance da Evolution API
-5. **Feedback** — toast de sucesso/erro ao salvar
+### 2. Formatar horários sem segundos em todo o app
+
+Nos locais que exibem `apt.time` (que vem como `HH:mm:ss`), aplicar `.slice(0, 5)` para mostrar apenas `HH:mm`:
+
+- **`src/pages/Dashboard.tsx`** — linhas que exibem `nextAppointment.time` e `apt.time`
+- **`src/pages/Agenda.tsx`** — linhas que exibem `apt.time`
+- **`src/pages/PatientDetail.tsx`** — linha que exibe `apt.time`
+
+Criar helper `formatTime(t: string) => t?.slice(0, 5)` ou aplicar `.slice(0,5)` inline.
 
