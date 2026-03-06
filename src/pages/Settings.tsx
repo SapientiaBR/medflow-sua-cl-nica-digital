@@ -277,13 +277,13 @@ export default function Settings() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="p-4 border rounded-xl text-center hover:border-primary transition-colors cursor-pointer">
                 <p className="font-bold text-foreground">Pro</p>
-                <p className="text-2xl font-bold text-primary">R$ 99<span className="text-sm">/mês</span></p>
+                <p className="text-2xl font-bold text-primary">R$ 549<span className="text-sm">/mês</span></p>
                 <p className="text-xs text-muted-foreground mt-1">Pacientes ilimitados + Secretária IA</p>
               </div>
               <div className="p-4 border rounded-xl text-center hover:border-primary transition-colors cursor-pointer">
                 <p className="font-bold text-foreground">Clínica</p>
-                <p className="text-2xl font-bold text-primary">R$ 249<span className="text-sm">/mês</span></p>
-                <p className="text-xs text-muted-foreground mt-1">Multi-médicos + Relatórios avançados</p>
+                <p className="text-2xl font-bold text-primary">R$ 1.199<span className="text-sm">/mês</span></p>
+                <p className="text-xs text-muted-foreground mt-1">Até 3 médicas + Relatórios avançados</p>
               </div>
             </div>
           </div>
