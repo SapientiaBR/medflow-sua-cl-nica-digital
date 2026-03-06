@@ -1,38 +1,23 @@
 
 
-## Issues and Fixes
+# Conectar aba Secretária IA + corrigir build errors
 
-### 1. "Gerar Receita" and "Gerar Pedido de Exames" buttons do nothing
-In `Consultation.tsx` (lines 149-150), both buttons have no `onClick` handler. They need to:
-- Collect selected exams from `form` state (for pedido de exames) or conduta text (for receita)
-- Create a document in the `documents` table with proper type (`receita` or `pedido_exame`)
-- Show a toast confirming creation
-- Optionally, the document content should be formatted from the form data
+## Build errors a corrigir primeiro
 
-### 2. Consultation notes (medical_records) not visible anywhere
-The `PatientDetail.tsx` "Histórico" tab only shows appointment date/status. The actual consultation content saved in `medical_records` is not displayed. Fix:
-- Add a section in the "Histórico" tab (or a new "Prontuário" tab) that shows each medical_record's content (queixa, HMA, medicamentos, antecedentes, exame físico, conduta) with the date
-- Medical records are already fetched in `PatientDetail.tsx` (line 59-66) but only used for evolution charts
+### 1. `Consultation.tsx` — faltam imports
+- Adicionar `useMemo` ao import do React
+- Adicionar `import { ptBR } from 'date-fns/locale'`
 
-### 3. Time picker restricted to :00 and :30
-In `Agenda.tsx`, the new appointment modal (line 472) and edit modal (line 381) use `<Input type="time">` which allows any minute. Replace with a `<Select>` dropdown that only offers times in 30-minute intervals (e.g., 07:00, 07:30, 08:00, ... 19:00, 19:30).
+### 2. `PatientDetail.tsx` — query incompleta (linha 49-51)
+- A query de `documents` não tem `queryKey` nem `queryFn` — adicionar ambos para buscar documentos do paciente
 
----
+## Feature: Aba Secretária IA funcional
 
-### Technical Details
+### Em `src/pages/Settings.tsx`:
 
-**Consultation.tsx changes:**
-- Add state for receita/pedido content (textarea in a Dialog)
-- On "Gerar Receita" click: open a dialog pre-filled with medications from `form.medicamentos`, let doctor edit, then insert into `documents` table with `type: 'receita'`
-- On "Gerar Pedido de Exames" click: auto-generate content from checked exams in `form`, insert into `documents` with `type: 'pedido_exame'`
-- Both save `appointment_id` and `patient_id` references
-
-**PatientDetail.tsx changes:**
-- In the "Histórico" tab, for each appointment with status `realizada`, show the linked medical_record content below the appointment card
-- Display fields: queixa, HMA, conduta, peso, PA, exams requested
-- Or add expandable accordion per appointment
-
-**Agenda.tsx changes:**
-- Generate time slots array: `['07:00', '07:30', '08:00', ..., '20:00']`
-- Replace `<Input type="time">` with `<Select>` using these slots in both new appointment and edit appointment dialogs
+1. **Carregar config existente** — `useQuery` para buscar `integrations_config` do doctor logado
+2. **Estado local** — campos: `evolution_api_url`, `evolution_api_key`, `evolution_instance_id`, `ai_active`, `ai_tone`, `ai_instructions`
+3. **Salvar** — mutation com upsert (`onConflict: 'doctor_id'`) na tabela `integrations_config`
+4. **UI da aba "ia"** — substituir os inputs estáticos por inputs controlados ligados ao estado, com o switch de `ai_active` funcional e campos para URL/key/instance da Evolution API
+5. **Feedback** — toast de sucesso/erro ao salvar
 

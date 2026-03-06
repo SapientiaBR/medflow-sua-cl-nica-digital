@@ -183,16 +183,39 @@ export default function PatientDetail() {
         <TabsContent value="historico" className="mt-4 space-y-2">
           {appointments.length === 0 ? (
             <p className="text-muted-foreground text-sm text-center py-8">Nenhuma consulta registrada</p>
-          ) : appointments.map((apt: any) => (
-            <div key={apt.id} className="medflow-card flex items-center gap-3">
-              <Calendar className="h-5 w-5 text-primary shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm font-medium">{format(parseISO(apt.date), "d 'de' MMMM, yyyy", { locale: ptBR })} — {apt.time?.slice(0, 5)}</p>
-                <p className="text-xs text-muted-foreground capitalize">{apt.type} • {apt.duration_minutes}min</p>
+          ) : appointments.map((apt: any) => {
+            const record = medicalRecords.find((r: any) => r.appointment_id === apt.id);
+            const content = record?.content as Record<string, any> | undefined;
+            return (
+              <div key={apt.id} className="medflow-card space-y-2">
+                <div className="flex items-center gap-3">
+                  <Calendar className="h-5 w-5 text-primary shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{format(parseISO(apt.date), "d 'de' MMMM, yyyy", { locale: ptBR })} — {apt.time?.slice(0, 5)}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{apt.type} • {apt.duration_minutes}min</p>
+                  </div>
+                  <Badge variant="outline" className="text-xs">{statusLabels[apt.status]}</Badge>
+                </div>
+                {content && (
+                  <div className="ml-8 pl-3 border-l-2 border-primary/20 space-y-1 text-sm text-muted-foreground">
+                    {content.queixa && <p><span className="font-medium text-foreground">Queixa:</span> {content.queixa}</p>}
+                    {content.hma && <p><span className="font-medium text-foreground">HMA:</span> {content.hma}</p>}
+                    {content.medicamentos && <p><span className="font-medium text-foreground">Medicamentos:</span> {content.medicamentos}</p>}
+                    {content.antecedentes && <p><span className="font-medium text-foreground">Antecedentes:</span> {content.antecedentes}</p>}
+                    {(content.peso || content.pa) && (
+                      <p>
+                        <span className="font-medium text-foreground">Exame Físico:</span>{' '}
+                        {content.peso && `Peso: ${content.peso}kg `}
+                        {content.pa && `PA: ${content.pa} `}
+                        {content.fc && `FC: ${content.fc}bpm`}
+                      </p>
+                    )}
+                    {content.conduta && <p><span className="font-medium text-foreground">Conduta:</span> {content.conduta}</p>}
+                  </div>
+                )}
               </div>
-              <Badge variant="outline" className="text-xs">{statusLabels[apt.status]}</Badge>
-            </div>
-          ))}
+            );
+          })}
         </TabsContent>
 
         <TabsContent value="documentos" className="mt-4 space-y-2">
