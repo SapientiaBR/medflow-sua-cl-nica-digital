@@ -62,15 +62,7 @@ export default function Consultation() {
     onError: (e: any) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
   });
 
-  if (!appointment || !patient) {
-    return <div className="text-center py-20 text-muted-foreground">Carregando consulta...</div>;
-  }
-
-  const age = differenceInYears(new Date(), parseISO(patient.birth_date));
-  const imc = peso && altura ? (parseFloat(peso) / (parseFloat(altura) ** 2)).toFixed(1) : '—';
-  const specialty = doctor?.specialty || 'endocrinologia';
-
-  // Obstetrics calculations
+  // Obstetrics calculations (must be before early return)
   const ig = useMemo(() => {
     if (!dum) return null;
     const dumDate = parseISO(dum);
@@ -87,6 +79,14 @@ export default function Consultation() {
     const dppDate = addDays(addMonths(dumDate, 9), 7);
     return formatDate(dppDate, 'dd/MM/yyyy', { locale: ptBR });
   }, [dum]);
+
+  if (!appointment || !patient) {
+    return <div className="text-center py-20 text-muted-foreground">Carregando consulta...</div>;
+  }
+
+  const age = differenceInYears(new Date(), parseISO(patient.birth_date));
+  const imc = peso && altura ? (parseFloat(peso) / (parseFloat(altura) ** 2)).toFixed(1) : '—';
+  const specialty = doctor?.specialty || 'endocrinologia';
 
   return (
     <div className="space-y-4 max-w-3xl">
