@@ -32,6 +32,11 @@ const statusLabels: Record<string, string> = {
 };
 
 const hours = Array.from({ length: 12 }, (_, i) => `${(i + 7).toString().padStart(2, '0')}:00`);
+const TIME_SLOTS = Array.from({ length: 27 }, (_, i) => {
+  const h = Math.floor(i / 2) + 7;
+  const m = i % 2 === 0 ? '00' : '30';
+  return `${h.toString().padStart(2, '0')}:${m}`;
+});
 
 export default function Agenda() {
   const { user } = useAuth();
@@ -376,9 +381,16 @@ export default function Agenda() {
                   <Label>Data</Label>
                   <Input type="date" value={editingApt.date} onChange={e => setEditingApt(f => f ? { ...f, date: e.target.value } : f)} />
                 </div>
-                <div className="space-y-2">
+              <div className="space-y-2">
                   <Label>Horário</Label>
-                  <Input type="time" value={editingApt.time} onChange={e => setEditingApt(f => f ? { ...f, time: e.target.value } : f)} />
+                  <Select value={editingApt.time?.slice(0, 5)} onValueChange={v => setEditingApt(f => f ? { ...f, time: v } : f)}>
+                    <SelectTrigger><SelectValue placeholder="Horário" /></SelectTrigger>
+                    <SelectContent>
+                      {TIME_SLOTS.map(t => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -469,7 +481,14 @@ export default function Agenda() {
               </div>
               <div className="space-y-2">
                 <Label>Horário</Label>
-                <Input type="time" value={newApt.time} onChange={e => setNewApt(f => ({ ...f, time: e.target.value }))} />
+                <Select value={newApt.time} onValueChange={v => setNewApt(f => ({ ...f, time: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Horário" /></SelectTrigger>
+                  <SelectContent>
+                    {TIME_SLOTS.map(t => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">

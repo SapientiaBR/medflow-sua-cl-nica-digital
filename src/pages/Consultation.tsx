@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -41,6 +42,39 @@ export default function Consultation() {
   const [peso, setPeso] = useState('');
   const [altura, setAltura] = useState('');
   const [dum, setDum] = useState('');
+  const [docDialog, setDocDialog] = useState<{ open: boolean; type: 'receita' | 'pedido_exame'; content: string }>({ open: false, type: 'receita', content: '' });
+
+  const handleGenerateReceita = () => {
+    const content = form.conduta || form.medicamentos || '';
+    setDocDialog({ open: true, type: 'receita', content });
+  };
+
+  const handleGeneratePedidoExames = () => {
+    const selectedExams = Object.entries(form)
+      .filter(([k, v]) => k.startsWith('exam_') && v)
+      .map(([k]) => k.replace('exam_', ''));
+    setDocDialog({ open: true, type: 'pedido_exame', content: selectedExams.join('\n') });
+  };
+
+  const saveDocument = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('documents').insert({
+        doctor_id: user!.id,
+        patient_id: patient!.id,
+        appointment_id: appointmentId,
+        type: docDialog.type,
+        title: docDialog.type === 'receita' ? `Receita - ${patient!.name}` : `Pedido de Exames - ${patient!.name}`,
+        content: { text: docDialog.content },
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: docDialog.type === 'receita' ? 'Receita gerada!' : 'Pedido de exames gerado!' });
+      setDocDialog({ open: false, type: 'receita', content: '' });
+      queryClient.invalidateQueries({ queryKey: ['patient-documents'] });
+    },
+    onError: (e: any) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
+  });
 
   const saveMedicalRecord = useMutation({
     mutationFn: async () => {
@@ -146,8 +180,8 @@ export default function Consultation() {
           </div>
 
           <div className="flex gap-3">
-            <Button variant="outline" className="medflow-btn flex-1">Gerar Receita</Button>
-            <Button variant="outline" className="medflow-btn flex-1">Gerar Pedido de Exames</Button>
+            <Button variant="outline" className="medflow-btn flex-1" onClick={() => handleGenerateReceita()}>Gerar Receita</Button>
+            <Button variant="outline" className="medflow-btn flex-1" onClick={() => handleGeneratePedidoExames()}>Gerar Pedido de Exames</Button>
           </div>
         </div>
       )}
@@ -248,6 +282,30 @@ export default function Consultation() {
       >
         {saveMedicalRecord.isPending ? 'Salvando...' : 'Salvar e Finalizar Consulta'}
       </Button>
+
+      {/* Document Generation Dialog */}
+      <Dialog open={docDialog.open} onOpenChange={open => !open && setDocDialog(d => ({ ...d, open: false }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{docDialog.type === 'receita' ? 'Gerar Receita' : 'Gerar Pedido de Exames'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              rows={8}
+              value={docDialog.content}
+              onChange={e => setDocDialog(d => ({ ...d, content: e.target.value }))}
+              placeholder={docDialog.type === 'receita' ? 'Medicamentos e posologia...' : 'Exames solicitados...'}
+            />
+            <Button
+              className="w-full medflow-btn"
+              onClick={() => saveDocument.mutate()}
+              disabled={saveDocument.isPending || !docDialog.content.trim()}
+            >
+              {saveDocument.isPending ? 'Salvando...' : 'Salvar Documento'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
