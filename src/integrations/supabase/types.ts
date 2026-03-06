@@ -76,12 +76,15 @@ export type Database = {
           accepted_insurances: string[] | null
           avatar_url: string | null
           avg_consultation_price: number | null
+          clinic_address: string | null
           created_at: string
           crm: string
           email: string
+          faq_notes: string | null
           id: string
           name: string
           phone: string
+          pix_key: string | null
           specialty: Database["public"]["Enums"]["specialty"]
           whatsapp_number: string | null
           working_hours: Json | null
@@ -90,12 +93,15 @@ export type Database = {
           accepted_insurances?: string[] | null
           avatar_url?: string | null
           avg_consultation_price?: number | null
+          clinic_address?: string | null
           created_at?: string
           crm?: string
           email: string
+          faq_notes?: string | null
           id: string
           name: string
           phone?: string
+          pix_key?: string | null
           specialty?: Database["public"]["Enums"]["specialty"]
           whatsapp_number?: string | null
           working_hours?: Json | null
@@ -104,12 +110,15 @@ export type Database = {
           accepted_insurances?: string[] | null
           avatar_url?: string | null
           avg_consultation_price?: number | null
+          clinic_address?: string | null
           created_at?: string
           crm?: string
           email?: string
+          faq_notes?: string | null
           id?: string
           name?: string
           phone?: string
+          pix_key?: string | null
           specialty?: Database["public"]["Enums"]["specialty"]
           whatsapp_number?: string | null
           working_hours?: Json | null
