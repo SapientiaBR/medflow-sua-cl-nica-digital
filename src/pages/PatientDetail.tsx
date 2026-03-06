@@ -186,7 +186,7 @@ export default function PatientDetail() {
             <div key={apt.id} className="medflow-card flex items-center gap-3">
               <Calendar className="h-5 w-5 text-primary shrink-0" />
               <div className="flex-1">
-                <p className="text-sm font-medium">{format(parseISO(apt.date), "d 'de' MMMM, yyyy", { locale: ptBR })} — {apt.time}</p>
+                <p className="text-sm font-medium">{format(parseISO(apt.date), "d 'de' MMMM, yyyy", { locale: ptBR })} — {apt.time?.slice(0, 5)}</p>
                 <p className="text-xs text-muted-foreground capitalize">{apt.type} • {apt.duration_minutes}min</p>
               </div>
               <Badge variant="outline" className="text-xs">{statusLabels[apt.status]}</Badge>

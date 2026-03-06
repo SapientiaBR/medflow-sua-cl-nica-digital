@@ -146,7 +146,7 @@ export default function Dashboard() {
             <div className="flex-1">
               <p className="text-sm font-medium text-foreground">Próxima Consulta</p>
               <p className="text-lg font-bold text-primary">
-                {getPatientName(nextAppointment)} — {nextAppointment.time}
+                {getPatientName(nextAppointment)} — {nextAppointment.time?.slice(0, 5)}
               </p>
             </div>
             <Badge className="bg-primary/10 text-primary border-0">
@@ -171,7 +171,7 @@ export default function Dashboard() {
                 className="flex items-center justify-between p-3 rounded-xl bg-accent/30 hover:bg-accent/50 cursor-pointer transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-foreground w-12">{apt.time}</span>
+                  <span className="text-sm font-semibold text-foreground w-12">{apt.time?.slice(0, 5)}</span>
                   <div>
                     <p className="text-sm font-medium text-foreground">{getPatientName(apt)}</p>
                     <p className="text-xs text-muted-foreground capitalize">{apt.type}</p>

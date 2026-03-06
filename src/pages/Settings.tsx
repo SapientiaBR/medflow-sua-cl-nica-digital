@@ -29,6 +29,18 @@ export default function Settings() {
     avg_consultation_price: doctor?.avg_consultation_price?.toString() || '350',
   });
 
+  const DAYS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+  const DAY_KEYS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+  const initWorkingHours = () => {
+    const wh: Record<string, { active: boolean; inicio: string; fim: string }> = {};
+    DAY_KEYS.forEach(key => {
+      const h = (doctor?.working_hours as any)?.[key];
+      wh[key] = { active: !!h, inicio: h?.inicio || '08:00', fim: h?.fim || '18:00' };
+    });
+    return wh;
+  };
+  const [workingHours, setWorkingHours] = useState(initWorkingHours);
+
   // IA config state
   const [iaForm, setIaForm] = useState({
     evolution_api_url: '',
@@ -74,6 +86,24 @@ export default function Settings() {
     },
     onSuccess: () => {
       toast({ title: 'Perfil atualizado!' });
+    },
+    onError: (e: any) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
+  });
+
+  const updateWorkingHours = useMutation({
+    mutationFn: async () => {
+      const payload: Record<string, { inicio: string; fim: string }> = {};
+      DAY_KEYS.forEach(key => {
+        if (workingHours[key].active) {
+          payload[key] = { inicio: workingHours[key].inicio, fim: workingHours[key].fim };
+        }
+      });
+      const { error } = await supabase.from('doctors').update({ working_hours: payload }).eq('id', user!.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['doctor'] });
+      toast({ title: 'Horários salvos!' });
     },
     onError: (e: any) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
   });
@@ -141,20 +171,21 @@ export default function Settings() {
         <TabsContent value="horarios" className="mt-4">
           <div className="medflow-card space-y-4">
             <h2 className="font-semibold text-foreground flex items-center gap-2"><Clock className="h-5 w-5" /> Horários de Atendimento</h2>
-            {['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((day, i) => {
-              const key = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab'][i];
-              const hours = (doctor?.working_hours as any)?.[key];
+            {DAYS.map((day, i) => {
+              const key = DAY_KEYS[i];
               return (
                 <div key={day} className="flex items-center gap-4 py-2 border-b border-border/50 last:border-0">
                   <span className="w-20 text-sm font-medium">{day}</span>
-                  <Switch defaultChecked={!!hours} />
-                  <Input defaultValue={hours?.inicio || '08:00'} type="time" className="w-32" />
+                  <Switch checked={workingHours[key].active} onCheckedChange={v => setWorkingHours(wh => ({ ...wh, [key]: { ...wh[key], active: v } }))} />
+                  <Input value={workingHours[key].inicio} type="time" className="w-32" disabled={!workingHours[key].active} onChange={e => setWorkingHours(wh => ({ ...wh, [key]: { ...wh[key], inicio: e.target.value } }))} />
                   <span className="text-sm text-muted-foreground">até</span>
-                  <Input defaultValue={hours?.fim || '18:00'} type="time" className="w-32" />
+                  <Input value={workingHours[key].fim} type="time" className="w-32" disabled={!workingHours[key].active} onChange={e => setWorkingHours(wh => ({ ...wh, [key]: { ...wh[key], fim: e.target.value } }))} />
                 </div>
               );
             })}
-            <Button className="medflow-btn">Salvar Horários</Button>
+            <Button className="medflow-btn" onClick={() => updateWorkingHours.mutate()} disabled={updateWorkingHours.isPending}>
+              {updateWorkingHours.isPending ? 'Salvando...' : 'Salvar Horários'}
+            </Button>
           </div>
         </TabsContent>
 
