@@ -1,28 +1,23 @@
 
 
-## Issues Found
+# Conectar aba Secretária IA + corrigir build errors
 
-### 1. Consultation page not loading - React Hooks violation
-In `src/pages/Consultation.tsx`, there are two `useMemo` hooks (lines 75-90) placed **after** an early return (line 66-68). When `appointment` or `patient` is null, the component returns early with fewer hooks than when data is loaded. This causes the "Rendered more hooks than during the previous render" error.
+## Build errors a corrigir primeiro
 
-**Fix**: Move the `useMemo` hooks (`ig` and `dpp`) above the early return statement, guarding their internal logic against missing data.
+### 1. `Consultation.tsx` — faltam imports
+- Adicionar `useMemo` ao import do React
+- Adicionar `import { ptBR } from 'date-fns/locale'`
 
-### 2. Update plan prices in Settings
-In `src/pages/Settings.tsx` (lines 278-288):
-- **Pro**: Change from R$ 99/mes to **R$ 549/mes**, update description to mention "Secretária IA"
-- **Clinica**: Change from R$ 249/mes to **R$ 1.199/mes**, update description to mention "até 3 médicas"
+### 2. `PatientDetail.tsx` — query incompleta (linha 49-51)
+- A query de `documents` não tem `queryKey` nem `queryFn` — adicionar ambos para buscar documentos do paciente
 
----
+## Feature: Aba Secretária IA funcional
 
-### Technical Details
+### Em `src/pages/Settings.tsx`:
 
-**Consultation.tsx changes:**
-- Move `const ig = useMemo(...)` and `const dpp = useMemo(...)` to before line 66 (the early return)
-- Move `const specialty = ...` before the early return as well, or compute it inside useMemo safely
-
-**Settings.tsx changes:**
-- Line 280: `R$ 99` -> `R$ 549`
-- Line 281: Update description to include "Secretária IA"
-- Line 285: `R$ 249` -> `R$ 1.199`
-- Line 286: Update description to "Até 3 médicas + Relatórios avançados"
+1. **Carregar config existente** — `useQuery` para buscar `integrations_config` do doctor logado
+2. **Estado local** — campos: `evolution_api_url`, `evolution_api_key`, `evolution_instance_id`, `ai_active`, `ai_tone`, `ai_instructions`
+3. **Salvar** — mutation com upsert (`onConflict: 'doctor_id'`) na tabela `integrations_config`
+4. **UI da aba "ia"** — substituir os inputs estáticos por inputs controlados ligados ao estado, com o switch de `ai_active` funcional e campos para URL/key/instance da Evolution API
+5. **Feedback** — toast de sucesso/erro ao salvar
 
