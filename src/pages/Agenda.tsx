@@ -230,7 +230,7 @@ export default function Agenda() {
                         onClick={() => setSelectedApt(apt.id)}
                         className={`p-2 rounded-lg border-l-4 cursor-pointer text-xs transition-all hover:scale-[1.02] ${statusColors[apt.status]}`}
                       >
-                        <p className="font-semibold">{apt.time}</p>
+                        <p className="font-semibold">{apt.time?.slice(0, 5)}</p>
                         <p className="truncate">{getPatientName(apt)}</p>
                         <span className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium ${
                           apt.type === 'particular'
@@ -272,7 +272,7 @@ export default function Agenda() {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-semibold text-sm">{getPatientName(apt)}</p>
-                          <p className="text-xs text-muted-foreground">{apt.time} — {apt.duration_minutes}min</p>
+                          <p className="text-xs text-muted-foreground">{apt.time?.slice(0, 5)} — {apt.duration_minutes}min</p>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-medium ${
@@ -345,7 +345,7 @@ export default function Agenda() {
               <div className="space-y-2">
                 <p className="text-sm"><span className="font-medium">Paciente:</span> {getPatientName(selectedAppointment)}</p>
                 <p className="text-sm"><span className="font-medium">Data:</span> {format(parseISO(selectedAppointment.date), "d 'de' MMMM, yyyy", { locale: ptBR })}</p>
-                <p className="text-sm"><span className="font-medium">Horário:</span> {selectedAppointment.time} ({selectedAppointment.duration_minutes}min)</p>
+                <p className="text-sm"><span className="font-medium">Horário:</span> {selectedAppointment.time?.slice(0, 5)} ({selectedAppointment.duration_minutes}min)</p>
                 <p className="text-sm"><span className="font-medium">Tipo:</span> <span className="capitalize">{selectedAppointment.type}</span></p>
                 {selectedAppointment.notes && <p className="text-sm"><span className="font-medium">Observações:</span> {selectedAppointment.notes}</p>}
                 <p className="text-sm"><span className="font-medium">Status:</span> <Badge className={`${statusColors[selectedAppointment.status]} border-0 ml-1`}>{statusLabels[selectedAppointment.status]}</Badge></p>
