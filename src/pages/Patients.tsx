@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { ImportPatients } from '@/components/ImportPatients';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
@@ -95,9 +96,12 @@ export default function Patients() {
     <div className="space-y-4 max-w-4xl">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Pacientes</h1>
-        <Button onClick={() => setShowNewModal(true)} className="medflow-btn gap-2">
-          <Plus className="h-4 w-4" /> Novo Paciente
-        </Button>
+        <div className="flex gap-2">
+          <ImportPatients onSuccess={() => queryClient.invalidateQueries({ queryKey: ['patients'] })} />
+          <Button onClick={() => setShowNewModal(true)} className="medflow-btn gap-2">
+            <Plus className="h-4 w-4" /> Novo Paciente
+          </Button>
+        </div>
       </div>
 
       <div className="flex gap-3">
@@ -186,7 +190,7 @@ export default function Patients() {
                 <Select value={newPatient.blood_type} onValueChange={v => setNewPatient(f => ({ ...f, blood_type: v }))}>
                   <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                   <SelectContent>
-                    {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(t => (
+                    {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(t => (
                       <SelectItem key={t} value={t}>{t}</SelectItem>
                     ))}
                   </SelectContent>
