@@ -161,7 +161,7 @@ export default function Agenda() {
   };
 
   const getAppointmentsForDate = (date: Date) =>
-    appointments.filter((a: any) => isSameDay(parseISO(a.date), date));
+    appointments.filter((a: any) => isSameDay(parseISO(a.date), date) && a.status !== 'cancelada');
 
   const getPatientName = (apt: any) => apt.patients?.name || '';
 
@@ -257,7 +257,7 @@ export default function Agenda() {
         <div className="space-y-1">
           {hours.map(hour => {
             const apts = appointments.filter(
-              (a: any) => a.date === format(currentDate, 'yyyy-MM-dd') && a.time.startsWith(hour.split(':')[0])
+              (a: any) => a.date === format(currentDate, 'yyyy-MM-dd') && a.time.startsWith(hour.split(':')[0]) && a.status !== 'cancelada'
             );
             return (
               <div key={hour} className="flex gap-3 py-2 border-b border-border/50">
