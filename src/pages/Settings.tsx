@@ -9,8 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Stethoscope, Clock, Shield, MessageSquare, CreditCard, X } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Stethoscope, Clock, Shield, MessageSquare, CreditCard, X, Camera } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 const INSURANCE_OPTIONS = ['Sulamérica', 'Unimed', 'Care Plus', 'Amil', 'Alice', 'Bradesco'];
@@ -19,7 +20,9 @@ export default function Settings() {
   const { doctor, user, refreshDoctor } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [insurances, setInsurances] = useState(doctor?.accepted_insurances || []);
+  const doctorAny = doctor as any;
   const [form, setForm] = useState({
     name: doctor?.name || '',
     email: doctor?.email || '',
@@ -27,9 +30,9 @@ export default function Settings() {
     phone: doctor?.phone || '',
     whatsapp_number: doctor?.whatsapp_number || '',
     avg_consultation_price: doctor?.avg_consultation_price?.toString() || '350',
-    clinic_address: doctor?.clinic_address || '',
-    pix_key: doctor?.pix_key || '',
-    faq_notes: doctor?.faq_notes || '',
+    clinic_address: doctorAny?.clinic_address || '',
+    pix_key: doctorAny?.pix_key || '',
+    faq_notes: doctorAny?.faq_notes || '',
   });
 
   const DAYS = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
@@ -44,7 +47,6 @@ export default function Settings() {
   };
   const [workingHours, setWorkingHours] = useState(initWorkingHours);
 
-  // IA config state
   const [iaForm, setIaForm] = useState({
     evolution_api_url: '',
     evolution_api_key: '',
@@ -76,6 +78,38 @@ export default function Settings() {
     }
   }, [iaConfig]);
 
+  const uploadAvatar = async (file: File) => {
+    if (!user) return;
+    const ext = file.name.split('.').pop();
+    const filePath = `${user.id}/avatar.${ext}`;
+    
+    const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+    const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+    const { error: updateError } = await supabase.from('doctors').update({ avatar_url: avatarUrl } as any).eq('id', user.id);
+    if (updateError) throw updateError;
+
+    refreshDoctor();
+    toast({ title: 'Foto atualizada!' });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Arquivo muito grande', description: 'Máximo 5MB', variant: 'destructive' });
+      return;
+    }
+    try {
+      await uploadAvatar(file);
+    } catch (err: any) {
+      toast({ title: 'Erro ao enviar foto', description: err.message, variant: 'destructive' });
+    }
+  };
+
   const updateProfile = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from('doctors').update({
@@ -87,7 +121,7 @@ export default function Settings() {
         clinic_address: form.clinic_address,
         pix_key: form.pix_key,
         faq_notes: form.faq_notes,
-      }).eq('id', user!.id);
+      } as any).eq('id', user!.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -151,13 +185,26 @@ export default function Settings() {
         <TabsContent value="perfil" className="mt-4">
           <div className="medflow-card space-y-4">
             <div className="flex items-center gap-4 mb-4">
-              <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
-                <Stethoscope className="h-8 w-8 text-primary" />
+              <div className="relative">
+                <Avatar className="h-20 w-20">
+                  {doctor?.avatar_url ? (
+                    <AvatarImage src={doctor.avatar_url} alt="Avatar" />
+                  ) : null}
+                  <AvatarFallback className="bg-primary/10">
+                    <Stethoscope className="h-8 w-8 text-primary" />
+                  </AvatarFallback>
+                </Avatar>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-md hover:bg-primary/90 transition-colors"
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                </button>
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
               </div>
               <div>
                 <p className="font-semibold text-foreground">Dra. {doctor?.name}</p>
                 <p className="text-sm text-muted-foreground">{doctor?.crm}</p>
-                <Button variant="outline" size="sm" className="mt-2 medflow-btn">Alterar Foto</Button>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
