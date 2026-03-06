@@ -25,6 +25,7 @@ export default function Settings() {
     crm: doctor?.crm || '',
     phone: doctor?.phone || '',
     whatsapp_number: doctor?.whatsapp_number || '',
+    avg_consultation_price: doctor?.avg_consultation_price?.toString() || '350',
   });
 
   const updateProfile = useMutation({
@@ -34,6 +35,7 @@ export default function Settings() {
         phone: form.phone,
         whatsapp_number: form.whatsapp_number || null,
         accepted_insurances: insurances,
+        avg_consultation_price: form.avg_consultation_price ? parseFloat(form.avg_consultation_price) : null,
       }).eq('id', user!.id);
       if (error) throw error;
     },
@@ -75,6 +77,7 @@ export default function Settings() {
               <div className="space-y-2"><Label>Telefone</Label><Input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} /></div>
               <div className="space-y-2"><Label>WhatsApp</Label><Input value={form.whatsapp_number} onChange={e => setForm(f => ({ ...f, whatsapp_number: e.target.value }))} /></div>
               <div className="space-y-2"><Label>Especialidade</Label><Input value={doctor?.specialty || ''} disabled className="capitalize" /></div>
+              <div className="space-y-2"><Label>Valor Médio da Consulta (R$)</Label><Input type="number" min="0" step="0.01" value={form.avg_consultation_price} onChange={e => setForm(f => ({ ...f, avg_consultation_price: e.target.value }))} placeholder="350.00" /></div>
             </div>
             <Button className="medflow-btn" onClick={() => updateProfile.mutate()} disabled={updateProfile.isPending}>
               {updateProfile.isPending ? 'Salvando...' : 'Salvar'}

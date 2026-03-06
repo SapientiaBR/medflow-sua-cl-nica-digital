@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { differenceInYears, parseISO, differenceInDays, addDays, format as formatDate, addMonths } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { ArrowLeft, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
