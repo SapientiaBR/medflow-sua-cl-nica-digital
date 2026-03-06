@@ -1,6 +1,6 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { Stethoscope, Clock, Shield, MessageSquare, CreditCard, X } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 const INSURANCE_OPTIONS = ['Sulamérica', 'Unimed', 'Care Plus', 'Amil', 'Alice', 'Bradesco'];
@@ -28,6 +29,38 @@ export default function Settings() {
     avg_consultation_price: doctor?.avg_consultation_price?.toString() || '350',
   });
 
+  // IA config state
+  const [iaForm, setIaForm] = useState({
+    evolution_api_url: '',
+    evolution_api_key: '',
+    evolution_instance_id: '',
+    ai_active: false,
+    ai_tone: 'profissional e acolhedor',
+    ai_instructions: 'Você é a Secretária Digital do consultório. Seu objetivo é ajudar pacientes com agendamentos, dúvidas sobre endereços e convênios.',
+  });
+
+  const { data: iaConfig, isLoading: iaLoading } = useQuery({
+    queryKey: ['integrations-config', user?.id],
+    queryFn: async () => {
+      const { data } = await supabase.from('integrations_config').select('*').eq('doctor_id', user!.id).maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  useEffect(() => {
+    if (iaConfig) {
+      setIaForm({
+        evolution_api_url: iaConfig.evolution_api_url || '',
+        evolution_api_key: iaConfig.evolution_api_key || '',
+        evolution_instance_id: iaConfig.evolution_instance_id || '',
+        ai_active: iaConfig.ai_active || false,
+        ai_tone: iaConfig.ai_tone || 'profissional e acolhedor',
+        ai_instructions: iaConfig.ai_instructions || '',
+      });
+    }
+  }, [iaConfig]);
+
   const updateProfile = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.from('doctors').update({
@@ -41,6 +74,26 @@ export default function Settings() {
     },
     onSuccess: () => {
       toast({ title: 'Perfil atualizado!' });
+    },
+    onError: (e: any) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
+  });
+
+  const saveIaConfig = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from('integrations_config').upsert({
+        doctor_id: user!.id,
+        evolution_api_url: iaForm.evolution_api_url || null,
+        evolution_api_key: iaForm.evolution_api_key || null,
+        evolution_instance_id: iaForm.evolution_instance_id || null,
+        ai_active: iaForm.ai_active,
+        ai_tone: iaForm.ai_tone,
+        ai_instructions: iaForm.ai_instructions,
+      }, { onConflict: 'doctor_id' });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['integrations-config'] });
+      toast({ title: 'Configurações da IA salvas!' });
     },
     onError: (e: any) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
   });
@@ -135,17 +188,50 @@ export default function Settings() {
         <TabsContent value="ia" className="mt-4">
           <div className="medflow-card space-y-4">
             <h2 className="font-semibold text-foreground flex items-center gap-2"><MessageSquare className="h-5 w-5" /> Secretária IA</h2>
+            
             <div className="flex items-center justify-between p-4 bg-accent/50 rounded-xl">
               <div>
-                <p className="font-medium text-foreground">WhatsApp</p>
-                <p className="text-xs text-muted-foreground">Responda mensagens automaticamente</p>
+                <p className="font-medium text-foreground">Ativar Secretária IA</p>
+                <p className="text-xs text-muted-foreground">Responda mensagens do WhatsApp automaticamente</p>
               </div>
-              <Badge className="bg-muted text-muted-foreground border-0">Inativo</Badge>
+              <div className="flex items-center gap-2">
+                <Badge className={iaForm.ai_active ? 'bg-primary text-primary-foreground border-0' : 'bg-muted text-muted-foreground border-0'}>
+                  {iaForm.ai_active ? 'Ativo' : 'Inativo'}
+                </Badge>
+                <Switch checked={iaForm.ai_active} onCheckedChange={(v) => setIaForm(f => ({ ...f, ai_active: v }))} />
+              </div>
             </div>
-            <Button variant="outline" className="w-full medflow-btn">Conectar WhatsApp</Button>
-            <div className="space-y-2"><Label>Mensagem de Saudação</Label><Input placeholder="Olá! Consultório Dra. Maria Santos..." /></div>
-            <div className="space-y-2"><Label>Resposta Fora de Horário</Label><Input placeholder="No momento estamos fora do horário..." /></div>
-            <Button className="medflow-btn">Salvar Configurações</Button>
+
+            <div className="space-y-4 border rounded-xl p-4">
+              <h3 className="text-sm font-semibold text-foreground">Conexão Evolution API</h3>
+              <div className="space-y-2"><Label>URL da API</Label><Input value={iaForm.evolution_api_url} onChange={e => setIaForm(f => ({ ...f, evolution_api_url: e.target.value }))} placeholder="https://sua-evolution-api.com" /></div>
+              <div className="space-y-2"><Label>API Key</Label><Input type="password" value={iaForm.evolution_api_key} onChange={e => setIaForm(f => ({ ...f, evolution_api_key: e.target.value }))} placeholder="Sua chave de API" /></div>
+              <div className="space-y-2"><Label>Instance ID</Label><Input value={iaForm.evolution_instance_id} onChange={e => setIaForm(f => ({ ...f, evolution_instance_id: e.target.value }))} placeholder="Nome da instância" /></div>
+            </div>
+
+            <div className="space-y-4 border rounded-xl p-4">
+              <h3 className="text-sm font-semibold text-foreground">Comportamento da IA</h3>
+              <div className="space-y-2">
+                <Label>Tom de Voz</Label>
+                <Select value={iaForm.ai_tone} onValueChange={(v) => setIaForm(f => ({ ...f, ai_tone: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="profissional e acolhedor">Profissional e Acolhedor</SelectItem>
+                    <SelectItem value="formal">Formal</SelectItem>
+                    <SelectItem value="descontraído">Descontraído</SelectItem>
+                    <SelectItem value="objetivo e direto">Objetivo e Direto</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Instruções da IA</Label>
+                <Textarea rows={4} value={iaForm.ai_instructions} onChange={e => setIaForm(f => ({ ...f, ai_instructions: e.target.value }))} placeholder="Descreva como a IA deve se comportar..." />
+              </div>
+            </div>
+
+            <Button className="medflow-btn" onClick={() => saveIaConfig.mutate()} disabled={saveIaConfig.isPending}>
+              {saveIaConfig.isPending ? 'Salvando...' : 'Salvar Configurações'}
+            </Button>
           </div>
         </TabsContent>
 
