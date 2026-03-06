@@ -94,6 +94,23 @@ export default function PatientDetail() {
     onError: (e: any) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
   });
 
+  // Process evolution data - must be before early returns to respect hooks rules
+  const evolutionData = useMemo(() => {
+    return medicalRecords.map((record: any) => {
+      const date = format(parseISO(record.created_at), 'dd/MM');
+      const content = record.content || {};
+      return {
+        data: date,
+        glicemia: content.exam_Glicemia_Jejum ? content.glicemia_val : content.glicemia || null,
+        imc: content.imc || (content.peso && content.altura ? (content.peso / (content.altura ** 2)).toFixed(1) : null),
+        peso: content.peso || null,
+        altura_uterina: content.au || null,
+        perimetro_cefalico: content.pc || null,
+        estatura: content.altura || null,
+      };
+    });
+  }, [medicalRecords]);
+
   if (isLoading) return <div className="text-center py-20 text-muted-foreground">Carregando...</div>;
   if (!patient) return <div className="text-center py-20 text-muted-foreground">Paciente não encontrado</div>;
 
