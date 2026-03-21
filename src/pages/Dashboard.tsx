@@ -9,6 +9,12 @@ import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
+import { useToast } from '@/hooks/use-toast';
+import type { Database } from '@/integrations/supabase/types';
+
+type Appointment = Database['public']['Tables']['appointments']['Row'] & {
+  patients?: { name: string; insurance: string | null } | null;
+};
 
 const statusColors: Record<string, string> = {
   agendada: 'bg-amber-100 text-amber-700 border-amber-200',
@@ -29,6 +35,7 @@ const statusLabels: Record<string, string> = {
 export default function Dashboard() {
   const { doctor, user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const now = new Date();
   const todayStr = format(now, 'yyyy-MM-dd');
   const monthStr = format(now, 'yyyy-MM');
@@ -38,13 +45,17 @@ export default function Dashboard() {
   const { data: todayAppointments = [] } = useQuery({
     queryKey: ['appointments', 'today', todayStr],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('appointments')
         .select('*, patients(name, insurance)')
         .eq('date', todayStr)
         .neq('status', 'cancelada')
         .order('time');
-      return data || [];
+      if (error) {
+        toast({ title: 'Erro ao carregar consultas', description: error.message, variant: 'destructive' });
+        throw error;
+      }
+      return (data || []) as Appointment[];
     },
     enabled: !!user,
   });
@@ -52,12 +63,16 @@ export default function Dashboard() {
   const { data: monthAppointments = [] } = useQuery({
     queryKey: ['appointments', 'month', monthStr],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('appointments')
         .select('date, type, status')
         .gte('date', `${monthStr}-01`)
         .lte('date', `${monthStr}-31`);
-      return data || [];
+      if (error) {
+        toast({ title: 'Erro ao carregar dados', description: error.message, variant: 'destructive' });
+        throw error;
+      }
+      return (data || []) as Pick<Appointment, 'date' | 'type' | 'status'>[];
     },
     enabled: !!user,
   });
@@ -65,7 +80,11 @@ export default function Dashboard() {
   const { data: patientCount = 0 } = useQuery({
     queryKey: ['patients', 'count'],
     queryFn: async () => {
-      const { count } = await supabase.from('patients').select('*', { count: 'exact', head: true });
+      const { count, error } = await supabase.from('patients').select('*', { count: 'exact', head: true });
+      if (error) {
+        toast({ title: 'Erro ao carregar pacientes', description: error.message, variant: 'destructive' });
+        throw error;
+      }
       return count || 0;
     },
     enabled: !!user,
@@ -75,34 +94,38 @@ export default function Dashboard() {
   const { data: weekAppointments = [] } = useQuery({
     queryKey: ['appointments', 'week', format(weekDates[0], 'yyyy-MM-dd')],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('appointments')
         .select('date, time, status, patients(name)')
         .gte('date', format(weekDates[0], 'yyyy-MM-dd'))
         .lte('date', format(weekDates[6], 'yyyy-MM-dd'))
         .neq('status', 'cancelada')
         .order('time');
-      return data || [];
+      if (error) {
+        toast({ title: 'Erro ao carregar agenda', description: error.message, variant: 'destructive' });
+        throw error;
+      }
+      return (data || []) as (Pick<Appointment, 'date' | 'time' | 'status'> & { patients?: { name: string } | null })[];
     },
     enabled: !!user,
   });
 
   const nextAppointment = useMemo(() => {
     const nowTime = format(now, 'HH:mm');
-    return todayAppointments.find((a: any) => a.time >= nowTime && (a.status === 'agendada' || a.status === 'confirmada'));
+    return todayAppointments.find((a) => a.time >= nowTime && (a.status === 'agendada' || a.status === 'confirmada'));
   }, [todayAppointments, now]);
 
   const minutesUntilNext = nextAppointment
     ? differenceInMinutes(new Date(`${todayStr}T${nextAppointment.time}`), now)
     : null;
 
-  const monthCompleted = monthAppointments.filter((a: any) => a.status === 'realizada').length;
-  const monthTotal = monthAppointments.filter((a: any) => a.status !== 'cancelada').length;
-  const monthParticular = monthAppointments.filter((a: any) => a.type === 'particular' && a.status !== 'cancelada').length;
+  const monthCompleted = monthAppointments.filter((a) => a.status === 'realizada').length;
+  const monthTotal = monthAppointments.filter((a) => a.status !== 'cancelada').length;
+  const monthParticular = monthAppointments.filter((a) => a.type === 'particular' && a.status !== 'cancelada').length;
   const revenueValue = (monthParticular * (doctor?.avg_consultation_price || 350));
   const monthProgress = monthTotal > 0 ? (monthCompleted / monthTotal) * 100 : 0;
 
-  const getPatientName = (apt: any) => apt.patients?.name || 'Paciente';
+  const getPatientName = (apt: Appointment) => apt.patients?.name || 'Paciente';
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
   return (
@@ -232,7 +255,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="space-y-3">
-              {todayAppointments.slice(0, 5).map((apt: any, index: number) => (
+              {todayAppointments.slice(0, 5).map((apt, index: number) => (
                 <div
                   key={apt.id}
                   onClick={() => navigate('/agenda')}
@@ -273,7 +296,7 @@ export default function Dashboard() {
             {weekDates.map((date, i) => {
               const dateStr = format(date, 'yyyy-MM-dd');
               const isToday = isSameDay(date, now);
-              const dayAppts = weekAppointments.filter((a: any) => a.date === dateStr);
+              const dayAppts = weekAppointments.filter((a) => a.date === dateStr);
               const count = dayAppts.length;
 
               return (
@@ -297,7 +320,7 @@ export default function Dashboard() {
                   <div className="flex-1">
                     {count > 0 ? (
                       <div className="flex items-center gap-1 flex-wrap">
-                        {dayAppts.slice(0, 3).map((a: any, idx: number) => (
+                        {dayAppts.slice(0, 3).map((a, idx: number) => (
                           <div
                             key={idx}
                             className={`h-2 w-2 rounded-full ${

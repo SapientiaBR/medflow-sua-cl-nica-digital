@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, differenceInYears, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ArrowLeft, Phone, Mail, AlertTriangle, FileText, Calendar } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, FileText, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,7 +13,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import type { Database } from '@/integrations/supabase/types';
+
+type Patient = Database['public']['Tables']['patients']['Row'];
+type Appointment = Database['public']['Tables']['appointments']['Row'];
+type Document = Database['public']['Tables']['documents']['Row'];
+type MedicalRecord = Database['public']['Tables']['medical_records']['Row'];
 
 const INSURANCE_OPTIONS = ['Sulamérica', 'Unimed', 'Care Plus', 'Amil', 'Alice', 'Bradesco'];
 
@@ -22,7 +28,7 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function PatientDetail() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { doctor, user } = useAuth();
   const { toast } = useToast();
@@ -32,7 +38,7 @@ export default function PatientDetail() {
     queryKey: ['patient', id],
     queryFn: async () => {
       const { data } = await supabase.from('patients').select('*').eq('id', id).single();
-      return data;
+      return data as Patient | null;
     },
     enabled: !!id && !!user,
   });
@@ -41,17 +47,17 @@ export default function PatientDetail() {
     queryKey: ['patient-appointments', id],
     queryFn: async () => {
       const { data } = await supabase.from('appointments').select('*').eq('patient_id', id).order('date', { ascending: false });
-      return data || [];
+      return (data || []) as Appointment[];
     },
     enabled: !!id && !!user,
   });
 
-  const { data: documents = [] } = useQuery<any[]>({
+  const { data: documents = [] } = useQuery({
     queryKey: ['patient-documents', id],
     queryFn: async () => {
       const { data, error } = await supabase.from('documents').select('*').eq('patient_id', id!).order('created_at', { ascending: false });
       if (error) throw error;
-      return data || [];
+      return (data || []) as Document[];
     },
     enabled: !!id && !!user,
   });
@@ -60,17 +66,18 @@ export default function PatientDetail() {
     queryKey: ['patient-records', id],
     queryFn: async () => {
       const { data } = await supabase.from('medical_records').select('*').eq('patient_id', id).order('created_at', { ascending: true });
-      return data || [];
+      return (data || []) as MedicalRecord[];
     },
     enabled: !!id && !!user,
   });
 
-  const [editForm, setEditForm] = useState<any>(null);
+  const [editForm, setEditForm] = useState<Partial<Patient> | null>(null);
 
-  // Initialize form when patient loads
-  if (patient && !editForm) {
-    setEditForm({ ...patient });
-  }
+  useEffect(() => {
+    if (patient && !editForm) {
+      setEditForm({ ...patient });
+    }
+  }, [patient, editForm]);
 
   const updatePatient = useMutation({
     mutationFn: async () => {
@@ -91,12 +98,11 @@ export default function PatientDetail() {
       queryClient.invalidateQueries({ queryKey: ['patients'] });
       toast({ title: 'Dados atualizados!' });
     },
-    onError: (e: any) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
+    onError: (e: Error) => toast({ title: 'Erro', description: e.message, variant: 'destructive' }),
   });
 
-  // Process evolution data - must be before early returns to respect hooks rules
   const evolutionData = useMemo(() => {
-    return medicalRecords.map((record: any) => {
+    return medicalRecords.map((record) => {
       const date = format(parseISO(record.created_at), 'dd/MM');
       const content = record.content || {};
       return {
@@ -153,14 +159,14 @@ export default function PatientDetail() {
           {editForm && (
             <div className="medflow-card space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Nome</Label><Input value={editForm.name} onChange={e => setEditForm((f: any) => ({ ...f, name: e.target.value }))} /></div>
-                <div className="space-y-2"><Label>Telefone</Label><Input value={editForm.phone} onChange={e => setEditForm((f: any) => ({ ...f, phone: e.target.value }))} /></div>
-                <div className="space-y-2"><Label>Email</Label><Input value={editForm.email || ''} onChange={e => setEditForm((f: any) => ({ ...f, email: e.target.value }))} /></div>
-                <div className="space-y-2"><Label>CPF</Label><Input value={editForm.cpf || ''} onChange={e => setEditForm((f: any) => ({ ...f, cpf: e.target.value }))} /></div>
-                <div className="space-y-2"><Label>Data Nascimento</Label><Input type="date" value={editForm.birth_date} onChange={e => setEditForm((f: any) => ({ ...f, birth_date: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Nome</Label><Input value={editForm.name || ''} onChange={e => setEditForm(f => f ? { ...f, name: e.target.value } : f)} /></div>
+                <div className="space-y-2"><Label>Telefone</Label><Input value={editForm.phone || ''} onChange={e => setEditForm(f => f ? { ...f, phone: e.target.value } : f)} /></div>
+                <div className="space-y-2"><Label>Email</Label><Input value={editForm.email || ''} onChange={e => setEditForm(f => f ? { ...f, email: e.target.value } : f)} /></div>
+                <div className="space-y-2"><Label>CPF</Label><Input value={editForm.cpf || ''} onChange={e => setEditForm(f => f ? { ...f, cpf: e.target.value } : f)} /></div>
+                <div className="space-y-2"><Label>Data Nascimento</Label><Input type="date" value={editForm.birth_date || ''} onChange={e => setEditForm(f => f ? { ...f, birth_date: e.target.value } : f)} /></div>
                 <div className="space-y-2">
                   <Label>Convênio</Label>
-                  <Select value={editForm.insurance || ''} onValueChange={v => setEditForm((f: any) => ({ ...f, insurance: v }))}>
+                  <Select value={editForm.insurance || ''} onValueChange={v => setEditForm(f => f ? { ...f, insurance: v } : f)}>
                     <SelectTrigger><SelectValue placeholder="Selecione o convênio" /></SelectTrigger>
                     <SelectContent>
                       {INSURANCE_OPTIONS.map(ins => (
@@ -170,8 +176,8 @@ export default function PatientDetail() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2"><Label>Tipo Sanguíneo</Label><Input value={editForm.blood_type || ''} onChange={e => setEditForm((f: any) => ({ ...f, blood_type: e.target.value }))} /></div>
-                <div className="space-y-2"><Label>Alergias</Label><Input value={editForm.allergies || ''} onChange={e => setEditForm((f: any) => ({ ...f, allergies: e.target.value }))} /></div>
+                <div className="space-y-2"><Label>Tipo Sanguíneo</Label><Input value={editForm.blood_type || ''} onChange={e => setEditForm(f => f ? { ...f, blood_type: e.target.value } : f)} /></div>
+                <div className="space-y-2"><Label>Alergias</Label><Input value={editForm.allergies || ''} onChange={e => setEditForm(f => f ? { ...f, allergies: e.target.value } : f)} /></div>
               </div>
               <Button className="medflow-btn" onClick={() => updatePatient.mutate()} disabled={updatePatient.isPending}>
                 {updatePatient.isPending ? 'Salvando...' : 'Salvar Alterações'}
@@ -183,9 +189,9 @@ export default function PatientDetail() {
         <TabsContent value="historico" className="mt-4 space-y-2">
           {appointments.length === 0 ? (
             <p className="text-muted-foreground text-sm text-center py-8">Nenhuma consulta registrada</p>
-          ) : appointments.map((apt: any) => {
-            const record = medicalRecords.find((r: any) => r.appointment_id === apt.id);
-            const content = record?.content as Record<string, any> | undefined;
+          ) : appointments.map((apt) => {
+            const record = medicalRecords.find((r) => r.appointment_id === apt.id);
+            const content = record?.content as Record<string, unknown> | undefined;
             return (
               <div key={apt.id} className="medflow-card space-y-2">
                 <div className="flex items-center gap-3">
@@ -224,7 +230,7 @@ export default function PatientDetail() {
           </Button>
           {documents.length === 0 ? (
             <p className="text-muted-foreground text-sm text-center py-8">Nenhum documento</p>
-          ) : documents.map((doc: any) => (
+          ) : documents.map((doc) => (
             <div key={doc.id} className="medflow-card flex items-center gap-3">
               <FileText className="h-5 w-5 text-primary shrink-0" />
               <div className="flex-1">
