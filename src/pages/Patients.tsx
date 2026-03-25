@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { PageTransition } from '@/components/PageTransition';
 import { ImportPatients } from '@/components/ImportPatients';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

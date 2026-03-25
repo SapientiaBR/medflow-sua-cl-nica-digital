@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { PageTransition } from '@/components/PageTransition';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
