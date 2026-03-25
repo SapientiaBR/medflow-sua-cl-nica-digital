@@ -115,10 +115,10 @@ export default function Dashboard() {
         <h1 className="text-2xl font-bold text-foreground mt-1">
           Olá, Dra. {firstName}! 👋
         </h1>
-      </div>
+      </motion.div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
           icon={<CalendarDays className="h-5 w-5 text-primary" />}
           iconBg="bg-primary/10"
@@ -156,11 +156,13 @@ export default function Dashboard() {
             <p className="text-xs text-muted-foreground mt-0.5">Faturamento Est.</p>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Next Appointment */}
       {nextAppointment && (
-        <div
+        <motion.div
+          variants={fadeInUp}
+          transition={{ duration: 0.35 }}
           className="medflow-card border-l-4 border-l-primary cursor-pointer !p-4"
           onClick={() => navigate('/agenda')}
         >
@@ -180,11 +182,11 @@ export default function Dashboard() {
                 : 'agora'}
             </Badge>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Today's Appointments */}
-      <div className="medflow-card">
+      <motion.div variants={fadeInUp} transition={{ duration: 0.35 }} className="medflow-card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-bold text-foreground">Consultas de Hoje</h2>
           <button
@@ -226,10 +228,10 @@ export default function Dashboard() {
             ))}
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Week Calendar */}
-      <div className="medflow-card">
+      <motion.div variants={fadeInUp} transition={{ duration: 0.35 }} className="medflow-card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-bold text-foreground">Semana</h2>
           <span className="text-xs text-muted-foreground">
@@ -268,8 +270,9 @@ export default function Dashboard() {
             );
           })}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+    </PageTransition>
   );
 }
 
