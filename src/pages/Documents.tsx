@@ -272,5 +272,6 @@ export default function Documents() {
         </DialogContent>
       </Dialog>
     </div>
+    </PageTransition>
   );
 }

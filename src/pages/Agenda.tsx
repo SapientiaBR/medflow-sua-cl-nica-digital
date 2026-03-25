@@ -545,5 +545,6 @@ export default function Agenda() {
         </DialogContent>
       </Dialog>
     </div>
+    </PageTransition>
   );
 }

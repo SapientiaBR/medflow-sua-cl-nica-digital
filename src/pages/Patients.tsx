@@ -224,5 +224,6 @@ export default function Patients() {
         </DialogContent>
       </Dialog>
     </div>
+    </PageTransition>
   );
 }
