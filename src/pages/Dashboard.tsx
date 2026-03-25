@@ -288,7 +288,7 @@ function StatCard({
   label: string;
 }) {
   return (
-    <div className="medflow-card flex flex-col gap-2">
+    <motion.div variants={fadeInUp} transition={{ duration: 0.3 }} className="medflow-card flex flex-col gap-2">
       <div className={`medflow-stat-icon ${iconBg}`}>
         {icon}
       </div>
@@ -296,6 +296,6 @@ function StatCard({
         <span className="text-2xl font-bold text-foreground tabular-nums">{value}</span>
         <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
       </div>
-    </div>
+    </motion.div>
   );
 }
