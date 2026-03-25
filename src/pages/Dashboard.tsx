@@ -7,6 +7,8 @@ import { ptBR } from 'date-fns/locale';
 import { CalendarDays, Users, TrendingUp, DollarSign, Clock, Eye, EyeOff, ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { PageTransition, staggerContainer, fadeInUp, scaleIn } from '@/components/PageTransition';
 
 const statusColors: Record<string, string> = {
   agendada: 'bg-warning/15 text-warning',
@@ -103,9 +105,10 @@ export default function Dashboard() {
   const firstName = doctor?.name?.split(' ')[0] || '';
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <PageTransition>
+    <motion.div className="space-y-6 max-w-4xl" variants={staggerContainer} initial="initial" animate="animate">
       {/* Header */}
-      <div className="medflow-card medflow-gradient-bg border-0 !p-6">
+      <motion.div variants={fadeInUp} transition={{ duration: 0.4 }} className="medflow-card medflow-gradient-bg border-0 !p-6">
         <p className="text-sm font-medium text-muted-foreground">
           {format(now, "EEEE, d 'de' MMMM", { locale: ptBR })}
         </p>
