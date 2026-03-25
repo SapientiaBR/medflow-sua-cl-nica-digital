@@ -179,6 +179,7 @@ export default function Agenda() {
   const selectedAppointment = selectedApt ? appointments.find((a: any) => a.id === selectedApt) : null;
 
   return (
+    <PageTransition>
     <div className="space-y-4 max-w-6xl">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Agenda</h1>

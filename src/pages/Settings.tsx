@@ -172,6 +172,7 @@ export default function Settings() {
   });
 
   return (
+    <PageTransition>
     <div className="space-y-4 max-w-3xl">
       <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
 

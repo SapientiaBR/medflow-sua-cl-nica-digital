@@ -136,6 +136,7 @@ export default function Documents() {
   };
 
   return (
+    <PageTransition>
     <div className="space-y-4 max-w-4xl">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Documentos</h1>
