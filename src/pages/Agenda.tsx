@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { PageTransition } from '@/components/PageTransition';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -178,6 +179,7 @@ export default function Agenda() {
   const selectedAppointment = selectedApt ? appointments.find((a: any) => a.id === selectedApt) : null;
 
   return (
+    <PageTransition>
     <div className="space-y-4 max-w-6xl">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Agenda</h1>
@@ -543,5 +545,6 @@ export default function Agenda() {
         </DialogContent>
       </Dialog>
     </div>
+    </PageTransition>
   );
 }

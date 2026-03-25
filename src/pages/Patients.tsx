@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { PageTransition } from '@/components/PageTransition';
 import { ImportPatients } from '@/components/ImportPatients';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -93,6 +94,7 @@ export default function Patients() {
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 
   return (
+    <PageTransition>
     <div className="space-y-4 max-w-4xl">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Pacientes</h1>
@@ -222,5 +224,6 @@ export default function Patients() {
         </DialogContent>
       </Dialog>
     </div>
+    </PageTransition>
   );
 }

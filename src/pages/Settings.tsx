@@ -1,4 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { PageTransition } from '@/components/PageTransition';
 import { supabase } from '@/integrations/supabase/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
@@ -171,6 +172,7 @@ export default function Settings() {
   });
 
   return (
+    <PageTransition>
     <div className="space-y-4 max-w-3xl">
       <h1 className="text-2xl font-bold text-foreground">Configurações</h1>
 
@@ -324,5 +326,6 @@ export default function Settings() {
 
       </Tabs>
     </div>
+    </PageTransition>
   );
 }

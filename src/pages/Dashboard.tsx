@@ -7,6 +7,8 @@ import { ptBR } from 'date-fns/locale';
 import { CalendarDays, Users, TrendingUp, DollarSign, Clock, Eye, EyeOff, ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { PageTransition, staggerContainer, fadeInUp, scaleIn } from '@/components/PageTransition';
 
 const statusColors: Record<string, string> = {
   agendada: 'bg-warning/15 text-warning',
@@ -103,19 +105,20 @@ export default function Dashboard() {
   const firstName = doctor?.name?.split(' ')[0] || '';
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <PageTransition>
+    <motion.div className="space-y-6 max-w-4xl" variants={staggerContainer} initial="initial" animate="animate">
       {/* Header */}
-      <div className="medflow-card medflow-gradient-bg border-0 !p-6">
+      <motion.div variants={fadeInUp} transition={{ duration: 0.4 }} className="medflow-card medflow-gradient-bg border-0 !p-6">
         <p className="text-sm font-medium text-muted-foreground">
           {format(now, "EEEE, d 'de' MMMM", { locale: ptBR })}
         </p>
         <h1 className="text-2xl font-bold text-foreground mt-1">
           Olá, Dra. {firstName}! 👋
         </h1>
-      </div>
+      </motion.div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
           icon={<CalendarDays className="h-5 w-5 text-primary" />}
           iconBg="bg-primary/10"
@@ -153,11 +156,13 @@ export default function Dashboard() {
             <p className="text-xs text-muted-foreground mt-0.5">Faturamento Est.</p>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Next Appointment */}
       {nextAppointment && (
-        <div
+        <motion.div
+          variants={fadeInUp}
+          transition={{ duration: 0.35 }}
           className="medflow-card border-l-4 border-l-primary cursor-pointer !p-4"
           onClick={() => navigate('/agenda')}
         >
@@ -177,11 +182,11 @@ export default function Dashboard() {
                 : 'agora'}
             </Badge>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Today's Appointments */}
-      <div className="medflow-card">
+      <motion.div variants={fadeInUp} transition={{ duration: 0.35 }} className="medflow-card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-bold text-foreground">Consultas de Hoje</h2>
           <button
@@ -223,10 +228,10 @@ export default function Dashboard() {
             ))}
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Week Calendar */}
-      <div className="medflow-card">
+      <motion.div variants={fadeInUp} transition={{ duration: 0.35 }} className="medflow-card">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-bold text-foreground">Semana</h2>
           <span className="text-xs text-muted-foreground">
@@ -265,8 +270,9 @@ export default function Dashboard() {
             );
           })}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
+    </PageTransition>
   );
 }
 
@@ -282,7 +288,7 @@ function StatCard({
   label: string;
 }) {
   return (
-    <div className="medflow-card flex flex-col gap-2">
+    <motion.div variants={fadeInUp} transition={{ duration: 0.3 }} className="medflow-card flex flex-col gap-2">
       <div className={`medflow-stat-icon ${iconBg}`}>
         {icon}
       </div>
@@ -290,6 +296,6 @@ function StatCard({
         <span className="text-2xl font-bold text-foreground tabular-nums">{value}</span>
         <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
       </div>
-    </div>
+    </motion.div>
   );
 }

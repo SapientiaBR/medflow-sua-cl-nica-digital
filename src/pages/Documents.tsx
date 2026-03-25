@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PageTransition } from '@/components/PageTransition';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
@@ -135,6 +136,7 @@ export default function Documents() {
   };
 
   return (
+    <PageTransition>
     <div className="space-y-4 max-w-4xl">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-foreground">Documentos</h1>
@@ -270,5 +272,6 @@ export default function Documents() {
         </DialogContent>
       </Dialog>
     </div>
+    </PageTransition>
   );
 }
